@@ -1,0 +1,29 @@
+{
+  "name": "jobapply-autofill",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Chrome MV3 extension that autofills job applications using Jev field classification.",
+  "type": "module",
+  "scripts": {
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build:main": "vite build",
+    "build:content": "vite build --mode content",
+    "build": "npm run clean && npm run typecheck && npm run build:main && npm run build:content",
+    "dev": "npm run clean && concurrently -k -n main,content \"vite build --watch\" \"vite build --watch --mode content\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.3.0",
+    "@types/node": "^26.6.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "concurrently": "^10.0.5",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.1"
+  }
+}
