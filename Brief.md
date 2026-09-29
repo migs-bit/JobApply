@@ -347,17 +347,77 @@ Generate the full MVP as described above. Start with steps 1–4 of the build or
 Use placeholders for anything you don't know (e.g., icons). Do not add any API code, any network code, or any API key handling — that's explicitly out of scope for the MVP.
 
 --2nd input newest input--
-Steps 1–4 are verified and I'm on the newest build. Service worker runs clean, options page saves and reloads the profile, popup still has no registered panel (expected, deferred to step 8), and permissions are storage-only. Note: the Details page shows no permissions because storage is a silent permission in Chrome — confirmed granted via chrome.permissions.getAll().
 
-I've appended an addendum to Brief.md at the end that answers your four check-in questions and specifies step 5.
+---
 
-Please:
+## Addendum: Step 4 Check-In Answers & Step 5 Instructions
 
-Read the addendum section at the end of Brief.md.
+**Status:** Steps 1–4 are verified. The extension loads in Chrome, the options page saves and reloads the profile, the service worker runs without errors, and permissions are storage-only. (Note: Chrome's Details page shows no permissions because `storage` is a silent permission — confirmed granted via `chrome.permissions.getAll()`.) This addendum answers the open check-in questions and unblocks step 5.
 
-Commit steps 1–4 to MVPv1, including Brief.md.
+### Answers to the Step 4 Check-In
 
-Proceed to step 5 as specified in the addendum.
+1. **Resolver location:** `src/background/resolver/` — following the brief's own reasoning that adding AI later should be a one-file change.
+2. **Test sites:** Lever and Ashby. Testing will happen on real postings manually after the build. **Skip Greenhouse** for now since it embeds its form in an iframe, which the MVP does not scan.
+3. **Popup permissions:** On-click `activeTab` + `scripting` injection. No host permissions. No "read all data on all websites" warning.
+4. **Commit:** Yes — commit steps 1–4 to `MVPv1`, including `Brief.md`.
 
-Stop after step 5. Do not continue to step 6, the resolver, the filler, the overlay, or the popup. I'll test the scanner on real Lever and Ashby postings and report back with specific failures.
+### Note on the Popup
+
+Clicking the toolbar icon only flashes — no panel opens. On `chrome://extensions` → Details → **Inspect views**, the only entries are `service worker` and `options/options.html`. This means `popup.html` is not registered in the manifest or is not being built by Vite.
+
+**This is acceptable for now.** Fold the popup into step 8 as planned. When step 8 begins:
+
+- Add `src/popup/popup.html`
+- Register it in the manifest as `action.default_popup: "popup.html"`
+- Add it to `rollupOptions.input` in `vite.config.ts`
+- Wire the "Fill this page" button to the content-script injection
+
+Do not fix the popup before step 8.
+
+### Proceed to Step 5: The DOM Scanner
+
+**Goal:** A generic scanner that finds form fields on any page, with no site-specific logic.
+
+**Files to create:**
+
+- `src/content/scanner/dom-scanner.ts` — the scanner itself
+- `src/content/content-script.ts` — a minimal entry point that runs the scanner and logs results
+
+**Scanner requirements:**
+
+- Walk the DOM and find `<input>`, `<textarea>`, and `<select>` elements.
+- For each element, extract a `FieldCandidate` matching the interface in `shared/types.ts`:
+  - `id`
+  - `selector` (stable and unique — prefer `#id` if present, otherwise build a CSS path)
+  - `tag`
+  - `type`
+  - `name`
+  - `autocomplete`
+  - `label` (resolve from, in order: explicit `<label for="...">`, wrapping `<label>`, `aria-labelledby`; fall back to empty string)
+  - `placeholder`
+  - `ariaLabel`
+  - `nearbyText` (trimmed text content of the closest reasonable container — parent `<div>` or `<fieldset>` — capped to a reasonable length)
+- **Skip** fields that are:
+  - `type="hidden"`, `type="submit"`, `type="button"`, `type="reset"`
+  - `disabled`
+  - `readonly`
+  - `display: none` or `visibility: hidden`
+
+**Content script requirements:**
+
+- Runs the scanner on page load.
+- Logs detected fields to the console using the existing `debug()` helper (so output is silent in production builds).
+- Does nothing else — no resolver, no filler, no overlay.
+
+**Manifest registration:**
+
+- Because we're using `activeTab` + `scripting`, the content script must be injected **programmatically** (when the popup calls it), not declared in `content_scripts`.
+- If this conflicts with the current build setup, pause and explain the conflict before building.
+
+### Stop Conditions
+
+- **Do not** build the resolver, filler, overlay, or popup yet.
+- **Stop after step 5** and check in. The scanner will be tested on real Lever and Ashby postings, and any failures will be reported back with specific console output.
+- Keep the build clean: strict TypeScript, no `any`, no new dependencies, no network code.
+
 --end of newest input--
