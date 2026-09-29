@@ -1,107 +1,184 @@
 /**
- * Options page — a simple profile editor. Reads/writes the Profile in
- * chrome.storage.local via profile-store (shared with the service worker).
+ * Options page: edit the profile. All reads/writes go through the service
+ * worker (GET_PROFILE / SET_PROFILE), which re-validates everything; the
+ * checks here only exist to give instant feedback.
  */
 import { StrictMode, useEffect, useState, type FormEvent } from 'react';
 import { createRoot } from 'react-dom/client';
-import { getProfile, saveProfile } from '../background/storage/profile-store';
-import { EMPTY_PROFILE, type Profile } from '../shared/types';
+import './options.css';
+import { EMPTY_PROFILE, LIMITS } from '../shared/constants';
+import { sendToBackground } from '../shared/messaging';
+import { sanitizeProfile, validateProfile } from '../shared/profile-validation';
+import type { Profile, ProfileErrors, ProfileKey } from '../shared/types';
 
-type Status = 'loading' | 'idle' | 'saving' | 'saved' | 'error';
+interface FieldSpec {
+  key: ProfileKey;
+  label: string;
+  type?: 'email' | 'tel' | 'url';
+  autoComplete: string;
+  wide?: boolean;
+}
+
+// autoComplete lets Chrome's own autofill help fill in this form.
+const SECTIONS: Array<{ title: string; fields: FieldSpec[] }> = [
+  {
+    title: 'Personal',
+    fields: [
+      { key: 'firstName', label: 'First name', autoComplete: 'given-name' },
+      { key: 'lastName', label: 'Last name', autoComplete: 'family-name' },
+      { key: 'email', label: 'Email', type: 'email', autoComplete: 'email' },
+      { key: 'phone', label: 'Phone', type: 'tel', autoComplete: 'tel' },
+    ],
+  },
+  {
+    title: 'Address',
+    fields: [
+      { key: 'addressLine1', label: 'Address line 1', autoComplete: 'address-line1', wide: true },
+      { key: 'addressLine2', label: 'Address line 2', autoComplete: 'address-line2', wide: true },
+      { key: 'city', label: 'City', autoComplete: 'address-level2' },
+      { key: 'state', label: 'State / province', autoComplete: 'address-level1' },
+      { key: 'postalCode', label: 'Postal code', autoComplete: 'postal-code' },
+      { key: 'country', label: 'Country', autoComplete: 'country-name' },
+    ],
+  },
+  {
+    title: 'Links',
+    fields: [
+      { key: 'linkedin', label: 'LinkedIn', type: 'url', autoComplete: 'off', wide: true },
+      { key: 'github', label: 'GitHub', type: 'url', autoComplete: 'off', wide: true },
+      { key: 'website', label: 'Website / portfolio', type: 'url', autoComplete: 'url', wide: true },
+    ],
+  },
+];
+
+type Status = { kind: 'loading' | 'idle' | 'saving' | 'saved' } | { kind: 'error'; message: string };
 
 function OptionsApp() {
-  const [profile, setProfile] = useState<Profile>(EMPTY_PROFILE);
-  const [status, setStatus] = useState<Status>('loading');
+  const [profile, setProfile] = useState<Profile>({ ...EMPTY_PROFILE });
+  const [errors, setErrors] = useState<ProfileErrors>({});
+  const [status, setStatus] = useState<Status>({ kind: 'loading' });
 
   useEffect(() => {
-    getProfile()
-      .then((p) => {
-        setProfile(p);
-        setStatus('idle');
-      })
-      .catch(() => setStatus('error'));
+    void sendToBackground<Profile>({ type: 'GET_PROFILE' }).then((res) => {
+      if (res.ok) {
+        setProfile(res.data);
+        setStatus({ kind: 'idle' });
+      } else {
+        setStatus({ kind: 'error', message: 'Could not load your profile.' });
+      }
+    });
   }, []);
 
-  const update =
-    (field: keyof Profile) =>
-    (e: { target: { value: string } }) => {
-      setProfile((p) => ({ ...p, [field]: e.target.value }));
-      if (status === 'saved') setStatus('idle');
-    };
+  const onChange = (key: ProfileKey, value: string) => {
+    setProfile((p) => ({ ...p, [key]: value }));
+    setErrors(({ [key]: _cleared, ...rest }) => rest);
+    setStatus((s) => (s.kind === 'saved' ? { kind: 'idle' } : s));
+  };
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setStatus('saving');
-    try {
-      await saveProfile(profile);
-      setStatus('saved');
-    } catch {
-      setStatus('error');
+    const clientErrors = validateProfile(sanitizeProfile(profile));
+    if (Object.keys(clientErrors).length > 0) {
+      setErrors(clientErrors);
+      setStatus({ kind: 'error', message: 'Fix the highlighted fields.' });
+      return;
+    }
+
+    setStatus({ kind: 'saving' });
+    const res = await sendToBackground<Profile>({ type: 'SET_PROFILE', profile });
+    if (res.ok) {
+      setProfile(res.data); // reflects normalization, e.g. https:// added to links
+      setStatus({ kind: 'saved' });
+    } else {
+      setErrors(res.fieldErrors ?? {});
+      setStatus({ kind: 'error', message: res.fieldErrors ? 'Fix the highlighted fields.' : 'Could not save.' });
     }
   };
 
-  const statusText: Record<Status, string> = {
-    loading: 'Loading…',
-    idle: '',
-    saving: 'Saving…',
-    saved: 'Saved ✓',
-    error: 'Something went wrong — check the console.',
-  };
+  const busy = status.kind === 'loading' || status.kind === 'saving';
 
   return (
     <main>
       <h1>Your profile</h1>
-      <p className="hint">Stored locally in this browser and used to autofill job applications.</p>
+      <p className="hint intro">
+        Stored only in this browser. Job Autofill makes no network requests and never sends your data anywhere.
+      </p>
 
-      <form onSubmit={onSubmit}>
-        <div className="row">
-          <label>
-            First name
-            <input value={profile.firstName} onChange={update('firstName')} autoComplete="given-name" />
-          </label>
-          <label>
-            Last name
-            <input value={profile.lastName} onChange={update('lastName')} autoComplete="family-name" />
-          </label>
-        </div>
-        <div className="row">
-          <label>
-            Email
-            <input type="email" value={profile.email} onChange={update('email')} autoComplete="email" />
-          </label>
-          <label>
-            Phone
-            <input type="tel" value={profile.phone} onChange={update('phone')} autoComplete="tel" />
-          </label>
-        </div>
-        <label>
-          LinkedIn URL
-          <input
-            type="url"
-            value={profile.linkedin}
-            onChange={update('linkedin')}
-            placeholder="https://www.linkedin.com/in/your-handle"
-          />
-        </label>
-        <label>
-          Resume (plain text)
-          <textarea
-            value={profile.resumeText}
-            onChange={update('resumeText')}
-            placeholder="Paste your resume text here…"
-          />
-        </label>
+      <form onSubmit={onSubmit} noValidate>
+        {SECTIONS.map((section) => (
+          <section key={section.title} aria-labelledby={`h-${section.title}`}>
+            <h2 id={`h-${section.title}`}>{section.title}</h2>
+            <div className="grid">
+              {section.fields.map((f) => (
+                <label key={f.key} className={f.wide ? 'wide' : undefined}>
+                  {f.label}
+                  <input
+                    type={f.type ?? 'text'}
+                    value={profile[f.key]}
+                    onChange={(e) => onChange(f.key, e.target.value)}
+                    autoComplete={f.autoComplete}
+                    maxLength={LIMITS.profileValueLength}
+                    spellCheck={f.type ? false : undefined}
+                    placeholder={f.type === 'url' ? 'https://' : undefined}
+                    disabled={status.kind === 'loading'}
+                    aria-invalid={errors[f.key] ? true : undefined}
+                    aria-describedby={errors[f.key] ? `err-${f.key}` : undefined}
+                  />
+                  {errors[f.key] && (
+                    <span className="field-error" id={`err-${f.key}`}>
+                      {errors[f.key]}
+                    </span>
+                  )}
+                </label>
+              ))}
+            </div>
+          </section>
+        ))}
+
+        <AiFallbackPlaceholder />
 
         <div className="actions">
-          <button type="submit" disabled={status === 'loading' || status === 'saving'}>
-            Save
+          <button type="submit" disabled={busy}>
+            {status.kind === 'saving' ? 'Saving…' : 'Save'}
           </button>
-          <span className="status" role="status">
-            {statusText[status]}
+          <span className={`status ${status.kind}`} role="status" aria-live="polite">
+            {status.kind === 'saved' && 'Saved ✓'}
+            {status.kind === 'loading' && 'Loading…'}
+            {status.kind === 'error' && status.message}
           </span>
         </div>
       </form>
     </main>
+  );
+}
+
+/**
+ * Reserves the UI for the optional BYO-key AI tier (Tier 5). Intentionally
+ * inert: no state, no names, nothing stored. Enabled in a later release.
+ */
+function AiFallbackPlaceholder() {
+  return (
+    <fieldset disabled aria-describedby="ai-note">
+      <legend>
+        AI fallback (optional) <span className="badge">Coming later</span>
+      </legend>
+      <p className="hint" id="ai-note">
+        Coming later. Bring your own API key. Used only for unusual fields the built-in matching can't handle, and
+        only after you give consent.
+      </p>
+      <div className="grid">
+        <label>
+          Provider
+          <select defaultValue="">
+            <option value="">None</option>
+          </select>
+        </label>
+        <label>
+          API key
+          <input type="password" autoComplete="off" placeholder="Not available yet" />
+        </label>
+      </div>
+    </fieldset>
   );
 }
 

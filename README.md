@@ -1,103 +1,60 @@
-# JobApply Autofill (MVP)
+# Job Autofill
 
-A Chrome Manifest V3 extension that autofills job applications. It scans the form on the current page, asks **Jev** (a decision model) to classify each field into a canonical key, maps those keys to your saved profile, and fills the DOM in a way that React-controlled inputs pick up.
+A Chrome extension (Manifest V3) that autofills job application forms from a profile you keep on your own device.
+
+- **Local-first.** No data leaves your device in the default configuration. The extension makes no network requests at all: there is no network code, and its Content Security Policy blocks network access as a backstop.
+- **No telemetry.** No analytics, no error reporting, and no phone-home.
+- **AI is optional (coming later).** A future AI fallback for unusual fields will require **your own** API key and your explicit consent before first use.
+- **The developer receives no data and pays for no API usage.** There is no backend.
+- **Open source**, [MIT licensed](LICENSE).
+
+> **Status: early MVP.** Build steps 1–4 are done: the extension shell, profile storage, and the options page. Scanning and filling forms comes next.
 
 ## How it works
 
-```
- toolbar click
-      │
-      ▼
- service-worker.ts ──START_AUTOFILL──▶ content-script.ts
-                                           │ scanForm()            (dom-scanner.ts)
-                                           │ FieldCandidate[]
-      ◀────────────CLASSIFY_AND_PLAN───────┘
- classifyFields()   → Jev (jev-client.ts)
- getProfile()       → chrome.storage.local (profile-store.ts)
- generateAnswer()   → LLM placeholder (llm-client.ts), custom questions only
- FillInstruction[] ────────response───────▶ applyFillInstructions() (dom-filler.ts)
-                                            showConfirmationOverlay() (confirmation-ui.ts)
-```
+Every detected form field goes through deterministic tiers. The first match wins, and each fill records which tier matched, so you can always see *why* a field got a value:
 
-- **Confidence ≥ 0.8:** filled.
-- **0.5–0.8:** filled, but outlined in amber and flagged "review" in the overlay.
-- **< 0.5, `unknown`, or no profile value:** skipped.
-- **`custom_question`:** the LLM placeholder runs and logs its draft, but nothing is filled (MVP).
-- Fields that already have a value are never overwritten.
+1. **Tier 1:** the `autocomplete` attribute.
+2. **Tier 2:** label and `name` dictionary patterns.
+3. **Tier 3:** fuzzy matching against profile keys.
+4. **Tier 4 (later):** site adapters.
+5. **Tier 5 (later):** optional AI fallback with your own key.
 
-## Project layout
+Anything unmatched is left for you to fill in by hand.
 
-```
-manifest.json                      MV3 manifest (copied into dist/ at build)
-vite.config.ts                     two-pass build (see below)
-src/shared/types.ts                FieldCandidate, JevClassification, FillInstruction, Profile, messages
-src/background/service-worker.ts   orchestration + toolbar click handler
-src/background/api/jev-client.ts   classifyFields() → Jev (fake endpoint + local fallback)
-src/background/api/llm-client.ts   generateAnswer() placeholder
-src/background/storage/profile-store.ts
-src/content/content-script.ts      entry point in the page
-src/content/scanner/dom-scanner.ts
-src/content/filler/dom-filler.ts   setNativeValue() + event dispatch
-src/content/overlay/confirmation-ui.ts
-src/options/options.html|tsx       React profile editor
-test-page/index.html               sample application form for manual testing
-```
+## Install (development)
 
-### Why two builds?
-
-MV3 content scripts can't be ES modules, but the service worker and options page can. `vite build` produces `background.js` and the options page. `vite build --mode content` produces `content.js` as a single self-contained IIFE, so it never contains an `import` pointing at a shared chunk.
-
-## Setup
-
-Requires Node 20+.
+Requires Node 20+ and Chrome 120+.
 
 ```bash
-npm install
-npm run build        # typecheck + build into dist/
+npm ci
+npm run build
 ```
 
-Load it in Chrome:
-
-1. Open `chrome://extensions` and turn on **Developer mode**.
+1. Open `chrome://extensions` and enable **Developer mode**.
 2. Click **Load unpacked** and select the `dist/` folder.
-3. The options page opens on first install. Fill in your profile and click **Save**. You can reopen it later from the extension's **Details → Extension options**.
+3. The profile page opens automatically. Fill it in and click **Save**.
 
-### Development
+`npm run dev` rebuilds on change, with debug logging enabled. After each rebuild, click the reload icon on the extension's card.
 
-```bash
-npm run dev          # rebuilds dist/ on file changes (both passes)
-```
+## Security model
 
-After a rebuild, click the reload icon on the extension card in `chrome://extensions`, then refresh the page you're testing.
+- **Minimal permissions.** The only permission is `storage`. There are no host permissions, so the extension cannot read any website until you invoke it.
+- **Strict CSP on extension pages:** `default-src 'none'; script-src 'self'`. No inline scripts, no `eval`, and no network connections.
+- **One trust boundary.** Only the service worker touches storage, and it validates every message:
+  - It checks the message's shape and bounds its size.
+  - Profile messages are accepted only from the extension's own pages. Content scripts, which run inside untrusted websites, can never read the full profile.
+  - `chrome.storage.local` is restricted to trusted extension contexts.
+- **Input sanitizing.** Profile values are stripped of control and bidi-override characters and length-capped. Link fields must be `http(s)` URLs.
+- **Production builds never log profile data.** Debug logging is compiled out.
+- **Supply chain.** Dependencies are pinned to exact versions, and `.npmrc` disables npm install scripts. The runtime dependencies are only React and React DOM.
 
-### Try it
+To report a vulnerability, see [SECURITY.md](SECURITY.md).
 
-1. Serve the sample form:
-   ```bash
-   python3 -m http.server 8000 --directory test-page
-   ```
-2. Open http://localhost:8000 and click the extension's toolbar icon.
-3. Fields fill in, and an overlay in the top-right lists each field with its key, confidence, and status. Click a row to jump to that field.
+## Contributing
 
-To debug:
+Site adapters (Tier 4) will live in their own folder, one small file per site. Contribution guidelines will be added once that system exists. Until then, issues and PRs for the core tiers are welcome.
 
-- **Content-script logs:** the page's DevTools console, filtered by `[JobApply]`.
-- **Background logs (including the Jev request and response):** open `chrome://extensions` and click **service worker** on the extension card.
+## License
 
-## Wiring up Jev
-
-`src/background/api/jev-client.ts`:
-
-- Set `JEV_ENDPOINT` and `JEV_API_KEY`.
-- The request body is `{ categories: CanonicalKey[], items: [{ id, features }] }`. Adjust it to Jev's real schema.
-- The response is expected to be `Array<{ fieldId, key, confidence }>`. `parseJevResponse` validates it.
-- Once Jev is live, set `USE_LOCAL_FALLBACK = false`. The fallback is a keyword heuristic that exists only so the pipeline runs end to end while the endpoint is fake.
-
-> ⚠️ Anything bundled into an extension can be read by users. For production, route Jev and LLM calls through your own backend instead of shipping API keys in the extension.
-
-## MVP limitations
-
-- Only the top-level document is scanned: no iframes (e.g. embedded Greenhouse/Lever forms) and no shadow DOM.
-- Only text, email, tel, url, and search inputs, plus textarea and simple select matching. No file upload.
-- Custom questions are classified but not answered.
-- No site-specific adapters.
+MIT, see [LICENSE](LICENSE).

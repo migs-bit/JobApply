@@ -1,111 +1,83 @@
 /**
- * Types shared by the content script, service worker, and options page.
+ * Types shared by the service worker, content script, and extension pages.
  */
 
-/** Canonical keys Jev can assign to a form field. */
-export const CANONICAL_KEYS = [
-  'firstName',
-  'lastName',
-  'fullName',
-  'email',
-  'phone',
-  'linkedin',
-  'resume',
-  'custom_question',
-  'unknown',
-] as const;
-
-export type CanonicalKey = (typeof CANONICAL_KEYS)[number];
-
-/** Metadata about one fillable element, extracted by the DOM scanner. */
-export interface FieldCandidate {
-  /** Stable ID we stamp onto the element (data-jobapply-id) so the filler can find it again. */
-  fieldId: string;
-  tagName: 'input' | 'textarea' | 'select';
-  /** The input `type` attribute ("text", "email", "tel", ...); empty for textarea/select. */
-  inputType: string;
-  id: string;
-  name: string;
-  label: string;
-  placeholder: string;
-  ariaLabel: string;
-  autocomplete: string;
-  /** Short snippet of surrounding text (section headings, helper text, etc.). */
-  nearbyText: string;
-  required: boolean;
-  /** Visible option labels, for <select> elements only. */
-  options?: string[];
-}
-
-/** One classification result from Jev. */
-export interface JevClassification {
-  fieldId: string;
-  key: CanonicalKey;
-  /** 0..1 */
-  confidence: number;
-}
-
-/** What the background tells the content script to do with one field. */
-export interface FillInstruction {
-  fieldId: string;
-  key: CanonicalKey;
-  /** Value to write; empty when action is "skip". */
-  value: string;
-  confidence: number;
-  action: 'fill' | 'skip';
-  /** Where the value came from. */
-  source: 'profile' | 'llm' | 'none';
-  /** True when confidence is below the review threshold; the overlay highlights these. */
-  needsReview: boolean;
-  /** Human-readable reason for skips (shown in the overlay). */
-  reason?: string;
-}
-
-/** Outcome of applying one FillInstruction in the page. */
-export interface FillResult {
-  instruction: FillInstruction;
-  label: string;
-  status: 'filled' | 'skipped' | 'failed';
-  reason?: string;
-}
-
-/** The user profile stored in chrome.storage.local. */
 export interface Profile {
   firstName: string;
   lastName: string;
   email: string;
   phone: string;
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
   linkedin: string;
-  resumeText: string;
+  github: string;
+  website: string;
+  // Extendable: add the key here and to PROFILE_KEYS in constants.ts.
+  // The resolver treats missing/empty keys as "no match".
 }
 
-export const EMPTY_PROFILE: Profile = {
-  firstName: '',
-  lastName: '',
-  email: '',
-  phone: '',
-  linkedin: '',
-  resumeText: '',
-};
+export type ProfileKey = keyof Profile;
+
+/** One fillable element, as extracted by the DOM scanner. */
+export interface FieldCandidate {
+  /** Stable id, e.g. a hash of the selector. */
+  id: string;
+  /** CSS selector used to re-find the element when filling. */
+  selector: string;
+  tag: 'input' | 'textarea' | 'select';
+  /** The input `type` attribute (empty for textarea/select). */
+  type: string;
+  name: string;
+  autocomplete: string;
+  /** <label> text, if one was found. */
+  label: string;
+  placeholder: string;
+  ariaLabel: string;
+  /** Text from the field's surrounding container. */
+  nearbyText: string;
+}
+
+/** Which resolver tier produced a match; recorded so every fill is explainable. */
+export type ResolverSource = 'autocomplete' | 'dictionary' | 'fuzzy' | 'ai' | 'none';
+
+export interface ResolvedField {
+  fieldId: string;
+  key: ProfileKey | 'unknown';
+  /** 0..1 */
+  confidence: number;
+  source: ResolverSource;
+}
+
+export interface FillInstruction {
+  selector: string;
+  value: string;
+  confidence: number;
+  source: ResolverSource;
+  /** True when confidence is below REVIEW_THRESHOLD. */
+  requiresReview: boolean;
+}
 
 // ---------------------------------------------------------------------------
-// Messaging (content ↔ background)
+// Messages handled by the service worker
 // ---------------------------------------------------------------------------
 
-/** Background → content: user clicked the toolbar icon, start autofill. */
-export interface StartAutofillMessage {
-  type: 'START_AUTOFILL';
-}
+export type Msg =
+  | { type: 'GET_PROFILE' }
+  | { type: 'SET_PROFILE'; profile: Profile }
+  // The resolver runs in the background so that adding the AI tier later
+  // (which needs network access) is a one-file change.
+  | { type: 'RESOLVE_FIELDS'; fields: FieldCandidate[] };
 
-/** Content → background: classify these fields and return fill instructions. */
-export interface ClassifyAndPlanMessage {
-  type: 'CLASSIFY_AND_PLAN';
-  fields: FieldCandidate[];
-  pageUrl: string;
-}
+export type MsgType = Msg['type'];
 
-export type ExtensionMessage = StartAutofillMessage | ClassifyAndPlanMessage;
+/** Every response has this envelope, so callers can't mistake an error for data. */
+export type MsgResponse<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: string; fieldErrors?: ProfileErrors };
 
-export type ClassifyAndPlanResponse =
-  | { ok: true; instructions: FillInstruction[] }
-  | { ok: false; error: string };
+/** Per-field validation messages, keyed by profile key. */
+export type ProfileErrors = Partial<Record<ProfileKey, string>>;
