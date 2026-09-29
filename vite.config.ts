@@ -3,14 +3,15 @@ import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 /**
- * Two build passes, because MV3 content scripts can't be ES modules while the
- * service worker and extension pages can:
+ * Two build passes, run by scripts/build.mjs, because the content script is
+ * injected with chrome.scripting.executeScript (a classic script, so no
+ * `import`), while the service worker and extension pages can be ES modules:
  *
- *   `vite build`                → background.js (ES module) + extension pages
- *   `vite build --mode content` → content.js as one self-contained IIFE
+ *   mode "main"    → background.js (ES module) + extension pages
+ *   mode "content" → content.js as one self-contained IIFE
  *
- * The content pass is wired into package.json once the content script exists
- * (build step 5). Load `dist/` as an unpacked extension.
+ * Dev vs production is controlled by NODE_ENV (set by scripts/build.mjs), not
+ * by mode. Load `dist/` as an unpacked extension.
  *
  * No React plugin: Vite transforms JSX natively, and we never use the dev
  * server, so Fast Refresh (the plugin's main job) isn't needed.
@@ -32,7 +33,7 @@ function copyManifest(): Plugin {
   };
 }
 
-/** Extension pages; later build steps add popup.html here. */
+/** Extension pages. popup.html is picked up automatically once it exists (step 8). */
 const PAGES = {
   options: r('./src/options/options.html'),
   popup: r('./src/popup/popup.html'),
@@ -45,7 +46,7 @@ export default defineConfig(({ mode }): UserConfig => {
     publicDir: mode === 'content' ? false : r('./public'),
     build: {
       outDir: r('./dist'),
-      // `npm run clean` empties dist once; both passes write into it.
+      // scripts/build.mjs empties dist once; both passes write into it.
       emptyOutDir: false,
       target: 'chrome120',
       sourcemap: true,

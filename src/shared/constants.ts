@@ -49,6 +49,8 @@ export const LIMITS = {
   fieldsPerPage: 500,
   /** Max characters per FieldCandidate string property. */
   fieldTextLength: 300,
+  /** Max characters of surrounding text captured per field by the scanner. */
+  nearbyTextLength: 200,
 } as const;
 
 /** Confidence assigned by each resolver tier (see Brief.md). */

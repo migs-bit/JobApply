@@ -4,7 +4,11 @@
   "version": "0.1.0",
   "description": "Local-first autofill for job applications. No network calls, no telemetry.",
   "minimum_chrome_version": "120",
-  "permissions": ["storage"],
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
   "background": {
     "service_worker": "background.js",
     "type": "module"

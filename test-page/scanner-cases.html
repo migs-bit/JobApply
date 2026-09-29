@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Scanner edge cases</title>
+    <style>
+      body { font: 15px/1.5 system-ui, sans-serif; max-width: 720px; margin: 32px auto; padding: 0 16px; }
+      .case { margin: 0 0 14px; padding: 8px 10px; border: 1px dashed #ccc; }
+      .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    </style>
+  </head>
+  <body>
+    <h1>Scanner edge cases</h1>
+    <p>
+      Expected scanner results are declared on each control: <code>data-expect-skip</code>,
+      <code>data-expect-label</code>, <code>data-expect-nearby</code> (substring),
+      <code>data-expect-type</code>, or <code>data-expect-absent</code> (must not be scanned at all).
+    </p>
+
+    <form>
+      <!-- Label resolution -->
+      <div class="case"><label for="c1">First name *</label> <input id="c1" name="first" data-expect-label="First name *" /></div>
+      <div class="case"><label>Last name <input name="last" data-expect-label="Last name" /></label></div>
+      <div class="case">
+        <span id="c3a">Mobile</span> <span id="c3b">phone</span>
+        <input name="phone" aria-labelledby="c3a c3b" data-expect-label="Mobile phone" />
+      </div>
+      <div class="case">
+        <label for="c4">Email (label wins)</label><span id="c4x">aria text</span>
+        <input id="c4" name="email" aria-labelledby="c4x" data-expect-label="Email (label wins)" />
+      </div>
+      <div class="case">
+        <span id="c5x">From aria-labelledby</span>
+        <label for="someone-else">Wrong label <input name="c5" aria-labelledby="c5x" data-expect-label="From aria-labelledby" /></label>
+      </div>
+      <div class="case">
+        <label>Country <select name="country" data-expect-label="Country"><option>Canada</option><option>Mexico</option></select></label>
+      </div>
+      <div class="case"><input name="nolabel" placeholder="Placeholder only" aria-label="Aria only" data-expect-label="" /></div>
+
+      <!-- Nearby text + privacy -->
+      <div class="case">
+        <span>Cover letter</span>
+        <textarea name="cover" data-expect-nearby="Cover letter">PREFILLED-SECRET-TEXT</textarea>
+      </div>
+      <div class="case"><span>City</span> <input name="city" value="PREFILLED-SECRET-VALUE" data-expect-nearby="City" /></div>
+      <fieldset class="case">
+        <legend>Are you legally authorized to work here?</legend>
+        <label><input type="radio" name="auth" value="y" data-expect-label="Yes" data-expect-nearby="legally authorized" /> Yes</label>
+        <label><input type="radio" name="auth" value="n" data-expect-label="No" data-expect-nearby="legally authorized" /> No</label>
+      </fieldset>
+      <div class="case">
+        <span>Two fields, one box</span>
+        <input name="pair1" data-expect-nearby="" /> <input name="pair2" data-expect-nearby="" />
+      </div>
+
+      <!-- Selectors -->
+      <div class="case"><input id="dup" name="dup1" data-expect-label="" /> <input id="dup" name="dup2" data-expect-label="" /></div>
+      <div class="case"><label for="a:b.c[0]">Weird id</label> <input id="a:b.c[0]" name="weird" data-expect-label="Weird id" /></div>
+
+      <!-- Type normalization -->
+      <div class="case">
+        <input type="TEXT" name="upper" data-expect-type="text" />
+        <input type="bogus" name="bogus" data-expect-type="text" />
+        <input type="email" name="em2" data-expect-type="email" />
+        <input type="checkbox" name="agree" data-expect-type="checkbox" />
+      </div>
+
+      <!-- Skips -->
+      <div class="case">
+        <input type="hidden" name="h" data-expect-skip="non-fillable type" />
+        <input type="submit" data-expect-skip="non-fillable type" />
+        <input type="button" value="b" data-expect-skip="non-fillable type" />
+        <input type="reset" data-expect-skip="non-fillable type" />
+        <input type="image" alt="go" data-expect-skip="non-fillable type" />
+        <input name="dis" disabled data-expect-skip="disabled" />
+        <input name="ro" readonly data-expect-skip="readonly" />
+        <textarea name="rota" readonly data-expect-skip="readonly"></textarea>
+        <input name="none" style="display: none" data-expect-skip="not rendered" />
+        <input name="vis" style="visibility: hidden" data-expect-skip="not rendered" />
+        <div style="display: none"><input name="parentnone" data-expect-skip="not rendered" /></div>
+      </div>
+      <fieldset disabled class="case"><input name="fsdis" data-expect-skip="disabled" /></fieldset>
+
+      <!-- Kept on purpose: custom-styled controls hide the native input -->
+      <div class="case">
+        <input name="transparent" style="opacity: 0" data-expect-label="" />
+        <input name="srOnly" class="sr-only" data-expect-label="" />
+      </div>
+    </form>
+
+    <!-- Out of MVP scope: must not be scanned -->
+    <iframe srcdoc="<input name='in-iframe'>" title="iframe case"></iframe>
+    <div id="shadow-host"></div>
+    <script>
+      document.getElementById('shadow-host').attachShadow({ mode: 'open' }).innerHTML = '<input name="in-shadow">';
+    </script>
+  </body>
+</html>

@@ -8,7 +8,7 @@ A Chrome extension (Manifest V3) that autofills job application forms from a pro
 - **The developer receives no data and pays for no API usage.** There is no backend.
 - **Open source**, [MIT licensed](LICENSE).
 
-> **Status: early MVP.** Build steps 1–4 are done: the extension shell, profile storage, and the options page. Scanning and filling forms comes next.
+> **Status: early MVP.** Build steps 1–5 are done: the extension shell, profile storage, the options page, and the form scanner. The scanner only *reports* fields for now; matching and filling come next.
 
 ## How it works
 
@@ -37,9 +37,27 @@ npm run build
 
 `npm run dev` rebuilds on change, with debug logging enabled. After each rebuild, click the reload icon on the extension's card.
 
+## Testing the scanner (step 5)
+
+1. Run `npm run dev`. The scanner logs only in dev builds; `npm run build` output is silent.
+2. Reload the extension on `chrome://extensions`.
+3. Open a job application page:
+   - **Lever:** the posting's `/apply` page.
+   - **Ashby:** the posting's **Application** tab.
+   - For offline checks, serve the fixtures with `python3 -m http.server 8000 --directory test-page`. Then open `http://localhost:8000/` or `/scanner-cases.html`.
+4. Open DevTools → **Console** and click the extension's toolbar icon. You'll see:
+   - A summary line.
+   - A table of detected fields.
+   - The full field objects: right-click → **Copy object** to paste into a bug report.
+   - A table of skipped controls, each with a reason.
+5. Click the icon again to re-scan, for example after a form section expands.
+
+The toolbar click is a temporary trigger. The step 8 popup's **Fill this page** button replaces it.
+
 ## Security model
 
-- **Minimal permissions.** The only permission is `storage`. There are no host permissions, so the extension cannot read any website until you invoke it.
+- **Minimal permissions:** `storage`, `activeTab`, and `scripting`, with no host permissions and no `content_scripts`. The extension can't see any website until you click its icon, and then only that tab. Chrome shows no "read and change all your data" warning.
+- **The scanner never reads field values.** It reads labels and surrounding text only, and skips the contents of `<textarea>` and `<select>`.
 - **Strict CSP on extension pages:** `default-src 'none'; script-src 'self'`. No inline scripts, no `eval`, and no network connections.
 - **One trust boundary.** Only the service worker touches storage, and it validates every message:
   - It checks the message's shape and bounds its size.
