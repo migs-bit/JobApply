@@ -1,12 +1,14 @@
 /**
- * Service worker: owns storage and routes messages. No resolver logic yet;
- * RESOLVE_FIELDS is wired up in build step 6.
+ * Service worker: owns storage, routes messages, and runs the field resolver.
+ * RESOLVE_FIELDS returns only keys/confidence/evidence, never profile values:
+ * content scripts live in untrusted pages and get values only when filling.
  *
  * There is deliberately no network code anywhere in the extension. The CSP in
  * manifest.json (`default-src 'none'`) blocks fetch/XHR from extension
  * contexts as a backstop.
  */
 import { isAllowedSender, parseMsg } from './message-guard';
+import { resolveFields } from './resolver/field-resolver';
 import { getProfile, restrictStorageToTrustedContexts, saveProfile } from './storage/profile-store';
 import { debug } from '../shared/log';
 import type { Msg, MsgResponse } from '../shared/types';
@@ -65,7 +67,7 @@ async function handle(msg: Msg): Promise<MsgResponse<unknown>> {
     }
 
     case 'RESOLVE_FIELDS':
-      return fail('Not implemented yet');
+      return { ok: true, data: resolveFields(msg.fields, await getProfile()) };
   }
 }
 

@@ -55,6 +55,45 @@
         <input name="pair1" data-expect-nearby="" /> <input name="pair2" data-expect-nearby="" />
       </div>
 
+      <!-- Lever-style markup (copied from a real posting's structure) -->
+      <ul class="case">
+        <li class="application-question">
+          <label>
+            <div class="application-label">Full name<span class="required">✱</span></div>
+            <div class="application-field"><input type="text" name="name" data-expect-label="Full name ✱" data-expect-nearby="" /></div>
+          </label>
+        </li>
+        <li class="application-question custom-question">
+          <div>
+            <div class="application-label full-width multiple-select"><div class="text">Language Skill(s) (Check all that apply)<span class="required">✱</span></div></div>
+            <div class="application-field full-width required-field">
+              <ul data-qa="checkboxes">
+                <li><label><input type="checkbox" name="cards[abc][field0]" value="ENG" data-expect-label="English (ENG)" data-expect-nearby="Language Skill(s)" data-expect-nearby-not="English" /><span>English (ENG)</span></label></li>
+                <li><label><input type="checkbox" name="cards[abc][field0]" value="SPA" data-expect-label="Spanish (SPA)" data-expect-nearby="Language Skill(s)" data-expect-nearby-not="Spanish" /><span>Spanish (SPA)</span></label></li>
+              </ul>
+            </div>
+          </div>
+        </li>
+        <li class="application-question custom-question">
+          <div>
+            <div class="application-label full-width"><div class="text">Upload your transcript</div></div>
+            <div class="application-field full-width">
+              <a class="application-file-input-wrapper"><span class="default-label">Upload file</span><input type="file" name="cards[def][field0]" data-expect-nearby="Upload your transcript" data-expect-nearby-not="Upload file" /></a>
+            </div>
+          </div>
+        </li>
+        <li class="application-question custom-question">
+          <div>
+            <div class="application-label full-width textarea"><div class="text">Why do you want to work here?</div></div>
+            <div class="application-field full-width"><textarea name="cards[ghi][field0]" data-expect-nearby="Why do you want to work here?"></textarea></div>
+          </div>
+        </li>
+      </ul>
+
+      <div class="case">
+        <label>Resume/CV <span style="display: none">Couldn't auto-read resume.</span><input name="hiddenStatus" data-expect-label="Resume/CV" /></label>
+      </div>
+
       <!-- Selectors -->
       <div class="case"><input id="dup" name="dup1" data-expect-label="" /> <input id="dup" name="dup2" data-expect-label="" /></div>
       <div class="case"><label for="a:b.c[0]">Weird id</label> <input id="a:b.c[0]" name="weird" data-expect-label="Weird id" /></div>

@@ -12,11 +12,30 @@ export type FormControl = HTMLInputElement | HTMLTextAreaElement | HTMLSelectEle
 
 const NON_CONTEXT_TEXT = 'textarea, select, option, datalist, script, style, template, noscript';
 
-/** Whitespace-collapsed text of `node`, skipping non-context elements, capped at `max` chars. */
-export function textOf(node: Node, max: number = LIMITS.fieldTextLength): string {
+/**
+ * Whitespace-collapsed text of `node`, capped at `max` chars. Skips
+ * non-context elements, and any text inside an element in `exclude`.
+ */
+export function textOf(
+  node: Node,
+  max: number = LIMITS.fieldTextLength,
+  exclude: ReadonlySet<Element> = new Set(),
+): string {
   const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT, {
-    acceptNode: (t) =>
-      t.parentElement?.closest(NON_CONTEXT_TEXT) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
+    acceptNode: (t) => {
+      const parent = t.parentElement;
+      if (!parent || parent.closest(NON_CONTEXT_TEXT)) return NodeFilter.FILTER_REJECT;
+      // Hidden status/error text ("Couldn't auto-read resume") isn't what the
+      // user sees. Screen-reader-only text is clipped, not hidden, so it stays.
+      if (!isShown(parent)) return NodeFilter.FILTER_REJECT;
+      // Inclusive of `node` itself: when the container being read *is* an
+      // excluded element (e.g. the field's wrapping <label>), all its text is excluded.
+      for (let el: Element | null = parent; el; el = el.parentElement) {
+        if (exclude.has(el)) return NodeFilter.FILTER_REJECT;
+        if (el === node) break;
+      }
+      return NodeFilter.FILTER_ACCEPT;
+    },
   });
 
   let text = '';
@@ -24,6 +43,15 @@ export function textOf(node: Node, max: number = LIMITS.fieldTextLength): string
     text += ` ${t.nodeValue ?? ''}`;
   }
   return collapse(text).slice(0, max);
+}
+
+/** display:none (self or ancestor) or visibility:hidden → false. */
+export function isShown(el: Element): boolean {
+  if (typeof el.checkVisibility === 'function') {
+    return el.checkVisibility({ visibilityProperty: true, checkVisibilityCSS: true });
+  }
+  const style = getComputedStyle(el);
+  return style.visibility !== 'hidden' && style.display !== 'none' && el.getClientRects().length > 0;
 }
 
 export function collapse(s: string): string {
@@ -61,33 +89,66 @@ export function resolveLabel(el: FormControl): string {
   return '';
 }
 
-const MAX_CONTAINER_DEPTH = 6;
+const MAX_CONTAINER_DEPTH = 8;
 
 /**
- * Text of the closest <div> or <fieldset> that says something about this
- * field. Climbs past empty wrappers, but stops before a container that also
- * holds *other* fields, whose labels would describe the wrong field. Radio
- * and checkbox siblings with the same `name` don't count as other fields, so
- * a group's <fieldset>/<legend> question is still captured.
+ * The question or context text around a field: the closest ancestor with
+ * text beyond the field's *own* text. Its own text is its label(s), the
+ * option labels of its radio/checkbox group, and any button/link that wraps
+ * it (e.g. a styled "Upload file" button around a file input); those
+ * describe the control, not the question, and the label is reported
+ * separately anyway.
+ *
+ * Any element type counts as a container (Lever puts questions in an <li>
+ * next to the field's <div>), but climbing stops before a container that
+ * holds *other* fields, whose text would describe the wrong field.
  */
 export function nearbyText(el: FormControl, scannable: ReadonlySet<Element>): string {
+  const group = groupOf(el, scannable);
+  const ownText = ownTextElements(group);
+
   let node = el.parentElement;
   for (let depth = 0; node && node !== document.body && depth < MAX_CONTAINER_DEPTH; depth++) {
-    if (node.localName === 'div' || node.localName === 'fieldset') {
-      if (containsOtherFields(node, el, scannable)) return '';
-      const text = textOf(node, LIMITS.nearbyTextLength);
-      if (text) return text;
-    }
+    if (containsOtherFields(node, group, scannable)) return '';
+    const text = textOf(node, LIMITS.nearbyTextLength, ownText);
+    if (text) return text;
     node = node.parentElement;
   }
   return '';
 }
 
-function containsOtherFields(container: Element, el: FormControl, scannable: ReadonlySet<Element>): boolean {
+/** The field plus same-name radio/checkbox siblings: one question, several controls. */
+function groupOf(el: FormControl, scannable: ReadonlySet<Element>): ReadonlySet<Element> {
+  if (!el.name || !(el instanceof HTMLInputElement) || (el.type !== 'radio' && el.type !== 'checkbox')) {
+    return new Set([el]);
+  }
+  const sameName = Array.from(document.getElementsByName(el.name)).filter(
+    (other) => scannable.has(other) && (other as FormControl).form === el.form,
+  );
+  return new Set([el, ...sameName]);
+}
+
+function ownTextElements(group: ReadonlySet<Element>): ReadonlySet<Element> {
+  const own = new Set<Element>();
+  for (const control of group) {
+    for (const label of (control as FormControl).labels ?? []) own.add(label);
+    const wrapper = control.closest('a, button, [role="button"]');
+    if (wrapper) own.add(wrapper);
+    for (const id of control.getAttribute('aria-labelledby')?.split(/\s+/) ?? []) {
+      const target = id ? document.getElementById(id) : null;
+      if (target) own.add(target);
+    }
+  }
+  return own;
+}
+
+function containsOtherFields(
+  container: Element,
+  group: ReadonlySet<Element>,
+  scannable: ReadonlySet<Element>,
+): boolean {
   for (const other of container.querySelectorAll('input, textarea, select')) {
-    if (other === el || !scannable.has(other)) continue;
-    const sameGroup = el.name !== '' && (other as FormControl).name === el.name;
-    if (!sameGroup) return true;
+    if (scannable.has(other) && !group.has(other)) return true;
   }
   return false;
 }

@@ -1,6 +1,6 @@
 import { LIMITS } from '../../shared/constants';
 import type { FieldCandidate } from '../../shared/types';
-import { collapse, nearbyText, resolveLabel, type FormControl } from './field-text';
+import { collapse, isShown, nearbyText, resolveLabel, type FormControl } from './field-text';
 import { hashId, uniqueSelector } from './selector';
 
 /**
@@ -73,21 +73,10 @@ function skipReason(el: FormControl): SkipReason | null {
   // :disabled also covers controls inside a <fieldset disabled>.
   if (el.matches(':disabled')) return 'disabled';
   if (!(el instanceof HTMLSelectElement) && el.readOnly) return 'readonly';
-  if (!isRendered(el)) return 'not rendered';
+  // Opacity-0 and visually-hidden fields are deliberately kept: custom-styled
+  // inputs often hide the native control that still holds the form value.
+  if (!isShown(el)) return 'not rendered';
   return null;
-}
-
-/**
- * display:none (on the field or any ancestor) or visibility:hidden. Opacity-0
- * and visually-hidden fields are deliberately kept: custom-styled inputs
- * often hide the native control that still holds the form value.
- */
-function isRendered(el: Element): boolean {
-  if (typeof el.checkVisibility === 'function') {
-    return el.checkVisibility({ visibilityProperty: true, checkVisibilityCSS: true });
-  }
-  const style = getComputedStyle(el);
-  return style.visibility !== 'hidden' && style.display !== 'none' && el.getClientRects().length > 0;
 }
 
 /** Input `type` as the browser normalizes it ("TEXT" → "text", unknown → "text"); empty for textarea/select. */

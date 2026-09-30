@@ -22,6 +22,16 @@ export interface Profile {
 
 export type ProfileKey = keyof Profile;
 
+/**
+ * Keys computed from stored fields rather than stored themselves. Lever's
+ * `name` and Ashby's "Name" are single full-name fields, which no stored key
+ * covers. The filler builds the value from firstName + lastName.
+ */
+export type DerivedKey = 'fullName';
+
+/** Everything the resolver can map a field to. */
+export type ResolvableKey = ProfileKey | DerivedKey;
+
 /** One fillable element, as extracted by the DOM scanner. */
 export interface FieldCandidate {
   /** Stable id, e.g. a hash of the selector. */
@@ -46,10 +56,15 @@ export type ResolverSource = 'autocomplete' | 'dictionary' | 'fuzzy' | 'ai' | 'n
 
 export interface ResolvedField {
   fieldId: string;
-  key: ProfileKey | 'unknown';
+  key: ResolvableKey | 'unknown';
   /** 0..1 */
   confidence: number;
   source: ResolverSource;
+  /**
+   * Why this mapping was chosen (or why nothing was), e.g.
+   * `label "First name" matched /\bfirst name\b/`. Makes every fill explainable.
+   */
+  evidence: string;
 }
 
 export interface FillInstruction {

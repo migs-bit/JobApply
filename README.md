@@ -8,14 +8,15 @@ A Chrome extension (Manifest V3) that autofills job application forms from a pro
 - **The developer receives no data and pays for no API usage.** There is no backend.
 - **Open source**, [MIT licensed](LICENSE).
 
-> **Status: early MVP.** Build steps 1–5 are done: the extension shell, profile storage, the options page, and the form scanner. The scanner only *reports* fields for now; matching and filling come next.
+> **Status: early MVP.** Build steps 1–6 are done: the extension shell, profile storage, the options page, the form scanner, and resolver Tiers 1–2. Fields are detected and matched to profile keys, and the results are logged. Nothing is filled yet.
 
 ## How it works
 
 Every detected form field goes through deterministic tiers. The first match wins, and each fill records which tier matched, so you can always see *why* a field got a value:
 
 1. **Tier 1:** the `autocomplete` attribute.
-2. **Tier 2:** label and `name` dictionary patterns.
+2. **Tier 2:** label and `name` dictionary patterns
+   ([`dictionary.ts`](src/background/resolver/dictionary.ts).
 3. **Tier 3:** fuzzy matching against profile keys.
 4. **Tier 4 (later):** site adapters.
 5. **Tier 5 (later):** optional AI fallback with your own key.
@@ -37,7 +38,9 @@ npm run build
 
 `npm run dev` rebuilds on change, with debug logging enabled. After each rebuild, click the reload icon on the extension's card.
 
-## Testing the scanner (step 5)
+`npm test` runs the resolver unit tests with Node's built-in test runner. `npm run build` runs them too.
+
+## Testing the scanner and resolver (steps 5–6)
 
 1. Run `npm run dev`. The scanner logs only in dev builds; `npm run build` output is silent.
 2. Reload the extension on `chrome://extensions`.
@@ -50,6 +53,10 @@ npm run build
    - A table of detected fields.
    - The full field objects: right-click → **Copy object** to paste into a bug report.
    - A table of skipped controls, each with a reason.
+   - A table of **resolutions**, one row per field:
+     - the profile key (or `unknown`), its confidence, and which tier matched;
+     - `review` (below 0.8 confidence);
+     - `evidence`: *why*, e.g. `label "Email ✱" matched /\be ?mail\b/`.
 5. Click the icon again to re-scan, for example after a form section expands.
 
 The toolbar click is a temporary trigger. The step 8 popup's **Fill this page** button replaces it.
@@ -58,6 +65,9 @@ The toolbar click is a temporary trigger. The step 8 popup's **Fill this page** 
 
 - **Minimal permissions:** `storage`, `activeTab`, and `scripting`, with no host permissions and no `content_scripts`. The extension can't see any website until you click its icon, and then only that tab. Chrome shows no "read and change all your data" warning.
 - **The scanner never reads field values.** It reads labels and surrounding text only, and skips the contents of `<textarea>` and `<select>`.
+- **Profile values stay in the service worker.** The resolver runs there and returns keys and confidence only, never profile values.
+  - Resolution requests are accepted only from the top frame of a tab.
+  - Password, checkbox, radio, and file inputs are never mapped to profile data.
 - **Strict CSP on extension pages:** `default-src 'none'; script-src 'self'`. No inline scripts, no `eval`, and no network connections.
 - **One trust boundary.** Only the service worker touches storage, and it validates every message:
   - It checks the message's shape and bounds its size.

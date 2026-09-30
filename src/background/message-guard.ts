@@ -26,7 +26,9 @@ export function isAllowedSender(type: MsgType, sender: chrome.runtime.MessageSen
 
   return ALLOWED_SENDERS[type] === 'extension-page'
     ? fromExtensionPage
-    : !fromExtensionPage && sender.tab !== undefined;
+    : // Top frame only: the MVP never injects into iframes, so a message from
+      // a subframe isn't ours to trust.
+      !fromExtensionPage && sender.tab !== undefined && sender.frameId === 0;
 }
 
 function senderOrigin(sender: chrome.runtime.MessageSender): string | undefined {
