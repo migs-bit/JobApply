@@ -105,6 +105,23 @@ export interface FillResult {
   previousValue: string;
 }
 
+/** What the content script reports back to the popup: counts only, never values. */
+export interface FillSummary {
+  /** Fields the scanner found. */
+  fields: number;
+  /** Fields the resolver matched to a profile key. */
+  matched: number;
+  /** Fields with a saved profile value that the filler tried. */
+  attempted: number;
+  filled: number;
+  /** Filled fields below REVIEW_THRESHOLD. */
+  needsReview: number;
+  failed: number;
+}
+
+/** Popup → content script (chrome.tabs.sendMessage). */
+export type ContentMsg = { type: 'FILL_PAGE' };
+
 // ---------------------------------------------------------------------------
 // Messages handled by the service worker
 // ---------------------------------------------------------------------------

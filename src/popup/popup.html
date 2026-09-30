@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Job Autofill</title>
+    <!-- Styles come from CSS files imported in popup.ts: the extension CSP forbids inline <style>. -->
+  </head>
+  <body>
+    <main>
+      <h1>Job Autofill</h1>
+      <p id="status" role="status" aria-live="polite">Loading…</p>
+      <button id="fill" type="button" disabled>Fill this page</button>
+    </main>
+    <script type="module" src="./popup.ts"></script>
+  </body>
+</html>

@@ -1,5 +1,5 @@
 import { defineConfig, type Plugin, type UserConfig } from 'vite';
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 /**
@@ -33,11 +33,6 @@ function copyManifest(): Plugin {
   };
 }
 
-/** Extension pages. popup.html is picked up automatically once it exists (step 8). */
-const PAGES = {
-  options: r('./src/options/options.html'),
-  popup: r('./src/popup/popup.html'),
-};
 
 export default defineConfig(({ mode }): UserConfig => {
   const shared: UserConfig = {
@@ -69,8 +64,6 @@ export default defineConfig(({ mode }): UserConfig => {
     };
   }
 
-  const pages = Object.fromEntries(Object.entries(PAGES).filter(([, path]) => existsSync(path)));
-
   return {
     ...shared,
     plugins: [copyManifest()],
@@ -79,7 +72,11 @@ export default defineConfig(({ mode }): UserConfig => {
       // The polyfill would inject an inline script, which our CSP forbids.
       modulePreload: { polyfill: false },
       rollupOptions: {
-        input: { background: r('./src/background/service-worker.ts'), ...pages },
+        input: {
+          background: r('./src/background/service-worker.ts'),
+          options: r('./src/options/options.html'),
+          popup: r('./src/popup/popup.html'),
+        },
         output: {
           entryFileNames: '[name].js',
           chunkFileNames: 'chunks/[name]-[hash].js',

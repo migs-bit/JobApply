@@ -63,3 +63,11 @@ export const CONFIDENCE = {
 
 /** Fills below this confidence are flagged for review in the overlay. */
 export const REVIEW_THRESHOLD = 0.8;
+
+/**
+ * Set on the content script's isolated-world global once its message
+ * listener is registered. The popup checks it to inject the script only once
+ * per page. Pages can't see or spoof it: the isolated world is private to the
+ * extension.
+ */
+export const CONTENT_READY_FLAG = '__jobAutofillReady';

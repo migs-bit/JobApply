@@ -5,6 +5,7 @@
  */
 import { StrictMode, useEffect, useState, type FormEvent } from 'react';
 import { createRoot } from 'react-dom/client';
+import '../shared/theme.css';
 import './options.css';
 import { EMPTY_PROFILE, LIMITS } from '../shared/constants';
 import { sendToBackground } from '../shared/messaging';

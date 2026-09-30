@@ -21,18 +21,6 @@ chrome.runtime.onInstalled.addListener(({ reason }) => {
   if (reason === chrome.runtime.OnInstalledReason.INSTALL) void chrome.runtime.openOptionsPage();
 });
 
-// TEMPORARY (steps 5-7 testing): clicking the toolbar icon injects the
-// content script (scan → resolve → fill) into the current tab. The click is the user gesture that grants activeTab,
-// so no host permissions are needed. Chrome stops firing onClicked once
-// action.default_popup is set, so the step 8 popup replaces this; delete it then.
-chrome.action.onClicked.addListener((tab) => {
-  if (tab.id === undefined) return;
-  chrome.scripting
-    .executeScript({ target: { tabId: tab.id }, files: ['content.js'] })
-    // e.g. chrome:// pages and the Web Store, where extensions can't run.
-    .catch((err: unknown) => console.error('Could not scan this page', err));
-});
-
 chrome.runtime.onMessage.addListener((raw: unknown, sender, sendResponse) => {
   const msg = parseMsg(raw);
   if (!msg) {
