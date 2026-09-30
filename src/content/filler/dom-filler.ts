@@ -14,6 +14,13 @@ type Fillable = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
 const FILLABLE_INPUT_TYPES = new Set(['text', 'email', 'tel', 'url', 'search']);
 
 /**
+ * What each successful fill wrote and what it replaced, for Undo. Kept in the
+ * content script's isolated world (never logged, never sent anywhere), and
+ * weakly keyed so a field the page removes doesn't linger.
+ */
+const applied = new WeakMap<Element, { filled: string; previous: string }>();
+
+/**
  * React-safe value setter (Brief.md). Frameworks like React wrap an input's
  * `value` setter to track changes; assigning through that wrapper makes React
  * think nothing changed and it discards the input event. Calling the native
@@ -83,7 +90,27 @@ function fillOne(instruction: FillInstruction, doc: Document): FillResult {
   // A controlled input with no change handler, or a script that clears the
   // field, leaves it empty; report that instead of claiming success.
   if (el.value === '') return result('failed', previousValue, 'page did not keep the value');
+  applied.set(el, { filled: el.value, previous: previousValue });
   return result('filled', previousValue);
+}
+
+/**
+ * Restores fields this extension filled to their previous values. Only undoes
+ * our own writes: a field the user has edited since filling is left alone.
+ * Returns how many fields were restored.
+ */
+export function undoFill(results: readonly FillResult[], doc: Document = document): number {
+  let restored = 0;
+  for (const r of results) {
+    if (r.status !== 'filled') continue;
+    const el = querySafely(doc, r.selector);
+    const record = el ? applied.get(el) : undefined;
+    if (!el || !record || !isFillable(el) || el.value !== record.filled) continue;
+    setNativeValue(el, record.previous);
+    applied.delete(el);
+    restored++;
+  }
+  return restored;
 }
 
 function querySafely(doc: Document, selector: string): Element | null {

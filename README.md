@@ -8,7 +8,7 @@ A Chrome extension (Manifest V3) that autofills job application forms from a pro
 - **The developer receives no data and pays for no API usage.** There is no backend.
 - **Open source**, [MIT licensed](LICENSE).
 
-> **Status: early MVP.** Build steps 1–8 are done: the extension shell, profile storage, the options page, the form scanner, resolver Tiers 1–2, the filler, and the popup. Click the toolbar icon, then **Fill this page**. The confirmation overlay (step 9) comes next.
+> **Status: early MVP.** Build steps 1–9 are done: the extension shell, profile storage, the options page, the form scanner, resolver Tiers 1–2, the filler, the popup, and the confirmation overlay. Click the toolbar icon, then **Fill this page**. Fuzzy matching (Tier 3, step 10) comes next.
 
 ## How it works
 
@@ -40,7 +40,7 @@ npm run build
 
 `npm test` runs the resolver unit tests with Node's built-in test runner. `npm run build` runs them too.
 
-## Testing (steps 5–8)
+## Testing (steps 5–9)
 
 1. Run `npm run dev`. The scanner logs only in dev builds; `npm run build` output is silent.
 2. Reload the extension on `chrome://extensions`.
@@ -48,7 +48,7 @@ npm run build
    - **Lever:** the posting's `/apply` page.
    - **Ashby:** the posting's **Application** tab.
    - For offline checks, serve the fixtures with `python3 -m http.server 8000 --directory test-page`. Then open `http://localhost:8000/`, `/scanner-cases.html`, or `/filler-cases.html`. Each control on the case pages declares its expected result.
-4. Click the extension's toolbar icon, then **Fill this page**. **This fills the form** with your saved profile; it never submits. The popup shows a one-line result such as "Filled 5 of 5 fields." For details, open the page's DevTools → **Console** before clicking. You'll see:
+4. Click the extension's toolbar icon, then **Fill this page**. **This fills the form** with your saved profile; it never submits. When something is filled, the popup closes itself so the results panel (below) isn't hidden behind it. When nothing is filled, the popup stays open and says why, e.g. "No form fields found on this page." For details, open the page's DevTools → **Console** before clicking. You'll see:
    - A summary line.
    - A table of detected fields.
    - The full field objects: right-click → **Copy object** to paste into a bug report.
@@ -58,11 +58,16 @@ npm run build
      - `review` (below 0.8 confidence);
      - `evidence`: *why*, e.g. `label "Email ✱" matched /\be ?mail\b/`.
    - A table of **fill results**: filled, skipped, or failed, with the reason (e.g. `already has a value`, `not visible`). Filled values are never logged, even in dev builds.
-5. Click **Fill this page** again to re-scan, for example after a form section expands. Fields that already have a value are left alone.
+5. A panel appears in the page's top-right corner listing each filled field with its value, confidence, and which tier matched it:
+   - **Yellow rows** (and a yellow outline on the field itself) are low-confidence and need a quick review. They're listed first.
+   - **Undo** puts back what was there before, but leaves any field you've edited since.
+   - **Close** or **Esc** dismisses the panel. It closes on its own after a few seconds when everything is high-confidence.
+6. Click **Fill this page** again to re-scan, for example after a form section expands. Fields that already have a value are left alone.
 
 ## Security model
 
 - **Minimal permissions:** `storage`, `activeTab`, and `scripting`, with no host permissions and no `content_scripts`. The extension can't see any website until you open its popup on a tab, and then only that tab. Chrome shows no install permission warnings.
+- **The overlay can't be read or driven by the page.** It lives in a closed shadow root built with `textContent` only, so page-supplied labels can't inject markup. It shows only values the extension just filled, which are already in the page's own fields. Its styles use a constructable stylesheet, so they work under strict page CSPs.
 - **The popup holds no profile data.** It asks the page to fill and gets back counts only ("Filled 4 of 5"). The content script accepts that request only from the extension's own pages, never from the website or other extensions.
 - **The scanner never reads field values.** It reads labels and surrounding text only, and skips the contents of `<textarea>` and `<select>`.
 - **Profile values stay in the service worker.** The resolver runs there and returns keys and confidence only, never profile values.

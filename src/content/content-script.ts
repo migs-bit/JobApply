@@ -1,7 +1,7 @@
 /**
  * Content script: on FILL_PAGE from the popup, scan the page, get a fill plan
- * from the service worker, fill the fields, and reply with counts (never
- * values). No overlay yet (step 9).
+ * from the service worker, fill the fields, show the confirmation overlay,
+ * and reply to the popup with counts (never values).
  *
  * The popup injects it on demand with chrome.scripting.executeScript
  * (activeTab), and it's never declared in manifest.json `content_scripts`, so
@@ -15,7 +15,8 @@ import { CONTENT_READY_FLAG } from '../shared/constants';
 import { debug, debugTable } from '../shared/log';
 import { sendToBackground } from '../shared/messaging';
 import type { FieldCandidate, FillPlan, FillResult, FillSummary, MsgResponse } from '../shared/types';
-import { applyFill } from './filler/dom-filler';
+import { applyFill, undoFill } from './filler/dom-filler';
+import { showOverlay, type OverlayRow } from './overlay/confirmation-ui';
 import { scanFields } from './scanner/dom-scanner';
 
 const EXTENSION_PAGE_PREFIX = chrome.runtime.getURL('');
@@ -26,7 +27,15 @@ async function fillPage(): Promise<FillSummary> {
   const ms = Math.round(performance.now() - started);
   logScan(fields, skipped, truncated, ms);
 
-  const empty: FillSummary = { fields: fields.length, matched: 0, attempted: 0, filled: 0, needsReview: 0, failed: 0 };
+  const empty: FillSummary = {
+    fields: fields.length,
+    matched: 0,
+    attempted: 0,
+    filled: 0,
+    needsReview: 0,
+    failed: 0,
+    overlayShown: false,
+  };
   if (fields.length === 0) return empty;
 
   const res = await sendToBackground<FillPlan>({ type: 'RESOLVE_FIELDS', fields });
@@ -35,6 +44,7 @@ async function fillPage(): Promise<FillSummary> {
 
   const results = applyFill(res.data.instructions);
   logFill(fields, results);
+  const overlayShown = presentResults(fields, res.data, results);
 
   const filled = results.filter((r) => r.status === 'filled');
   return {
@@ -44,7 +54,36 @@ async function fillPage(): Promise<FillSummary> {
     filled: filled.length,
     needsReview: filled.filter((r) => r.requiresReview).length,
     failed: results.filter((r) => r.status === 'failed').length,
+    overlayShown,
   };
+}
+
+/**
+ * Shows the overlay for anything filled or failed, and returns whether it did.
+ * Skipped-only runs are left to the popup's status line.
+ */
+function presentResults(fields: FieldCandidate[], plan: FillPlan, results: FillResult[]): boolean {
+  const values = new Map(plan.instructions.map((i) => [i.fieldId, i.value]));
+  const rows: OverlayRow[] = results
+    .filter((r) => r.status !== 'skipped')
+    .map((r) => ({
+      label: labelOf(fields, r.fieldId),
+      key: r.key,
+      value: r.status === 'filled' ? (values.get(r.fieldId) ?? '') : '',
+      confidence: r.confidence,
+      source: r.source,
+      requiresReview: r.requiresReview,
+      status: r.status === 'filled' ? 'filled' : 'failed',
+      ...(r.reason ? { reason: r.reason } : {}),
+      selector: r.selector,
+    }));
+  if (rows.length === 0) return false;
+  showOverlay({
+    rows,
+    skipped: results.filter((r) => r.status === 'skipped').length,
+    onUndo: () => undoFill(results),
+  });
+  return true;
 }
 
 // ---------------------------------------------------------------------------

@@ -15,9 +15,10 @@ import { fillStatus } from './status';
 const statusEl = document.getElementById('status') as HTMLParagraphElement;
 const button = document.getElementById('fill') as HTMLButtonElement;
 
-type Outcome = { text: string; kind: 'done' | 'error' };
+/** `close`: the page is showing the overlay, which is now the source of truth. */
+type Outcome = { text: string; kind: 'done' | 'error' } | 'close';
 
-function show(text: string, kind: '' | Outcome['kind'] = ''): void {
+function show(text: string, kind: '' | 'done' | 'error' = ''): void {
   statusEl.textContent = text;
   statusEl.className = kind;
 }
@@ -53,6 +54,8 @@ async function fillActiveTab(): Promise<Outcome> {
     res = undefined;
   }
   if (!res?.ok) return { text: 'Something went wrong. Reload the page and try again.', kind: 'error' };
+  // The overlay opens in the page's top-right corner, right where this popup sits: get out of its way.
+  if (res.data.overlayShown) return 'close';
   return { text: fillStatus(res.data), kind: 'done' };
 }
 
@@ -61,8 +64,12 @@ button.addEventListener('click', () => {
   show('Filling…');
   void fillActiveTab()
     .catch((): Outcome => ({ text: 'Something went wrong. Reload the page and try again.', kind: 'error' }))
-    .then(({ text, kind }) => {
-      show(text, kind);
+    .then((outcome) => {
+      if (outcome === 'close') {
+        window.close();
+        return;
+      }
+      show(outcome.text, outcome.kind);
       button.disabled = false;
     });
 });

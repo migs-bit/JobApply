@@ -117,6 +117,8 @@ export interface FillSummary {
   /** Filled fields below REVIEW_THRESHOLD. */
   needsReview: number;
   failed: number;
+  /** True when the confirmation overlay is on screen; the popup then closes so it doesn't cover it. */
+  overlayShown: boolean;
 }
 
 /** Popup → content script (chrome.tabs.sendMessage). */

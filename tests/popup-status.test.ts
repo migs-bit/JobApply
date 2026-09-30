@@ -10,6 +10,7 @@ const summary = (s: Partial<FillSummary>): FillSummary => ({
   filled: 5,
   needsReview: 0,
   failed: 0,
+  overlayShown: false,
   ...s,
 });
 
