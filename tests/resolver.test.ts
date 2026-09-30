@@ -92,8 +92,12 @@ describe('real-world field shapes', () => {
   });
   it('Lever custom questions stay unknown', () => {
     assert.equal(keyOf({ tag: 'textarea', type: '', name: 'cards[x][field0]', nearbyText: 'Why do you want to work at Palantir?' }), 'unknown');
-    assert.equal(keyOf({ label: 'Preferred Name | What would you like us to call you?' }), 'unknown');
     assert.equal(keyOf({ label: 'Name Pronunciation | How do you pronounce your name?' }), 'unknown');
+  });
+  it('a "preferred name" label is a low-confidence (fuzzy) first-name match, flagged for review', () => {
+    const r = resolve({ label: 'Preferred Name | What would you like us to call you?' });
+    assert.deepEqual([r.key, r.source], ['firstName', 'fuzzy']);
+    assert.ok(r.confidence <= 0.6);
   });
 });
 
@@ -123,6 +127,19 @@ describe('false-positive guards', () => {
   });
   it('"United States" is not a state field', () => {
     assert.equal(keyOf({ label: 'Which office in the United States?' }), 'unknown');
+  });
+  it('"state" used as a verb is not a state field, as a label or nearby text', () => {
+    assert.equal(keyOf({ label: 'Please state your salary expectations' }), 'unknown');
+    assert.equal(keyOf({ label: 'State why you are interested' }), 'unknown');
+    for (const label of ['State', 'State / Province', 'State of residence', 'State (US only)']) {
+      assert.equal(keyOf({ label }), 'state', label);
+    }
+  });
+  it('"unit" means an address unit only at the start or as "unit number"', () => {
+    assert.equal(keyOf({ label: 'Which business unit are you applying to?' }), 'unknown');
+    for (const label of ['Apt, suite, etc.', 'Unit', 'Unit number', 'Suite no.']) {
+      assert.equal(keyOf({ label }), 'addressLine2', label);
+    }
   });
   it('long nearby text is treated as a question, not a label', () => {
     assert.equal(keyOf({ nearbyText: 'Please state your salary expectations for this role' }), 'unknown');

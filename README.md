@@ -8,16 +8,20 @@ A Chrome extension (Manifest V3) that autofills job application forms from a pro
 - **The developer receives no data and pays for no API usage.** There is no backend.
 - **Open source**, [MIT licensed](LICENSE).
 
-> **Status: early MVP.** Build steps 1–9 are done: the extension shell, profile storage, the options page, the form scanner, resolver Tiers 1–2, the filler, the popup, and the confirmation overlay. Click the toolbar icon, then **Fill this page**. Fuzzy matching (Tier 3, step 10) comes next.
+> **Status: MVP complete.** All ten build steps are done: the extension shell, profile storage, the options page, the form scanner, resolver Tiers 1–3, the filler, the popup, and the confirmation overlay. Click the toolbar icon, then **Fill this page**.
 
 ## How it works
 
 Every detected form field goes through deterministic tiers. The first match wins, and each fill records which tier matched, so you can always see *why* a field got a value:
 
-1. **Tier 1:** the `autocomplete` attribute.
-2. **Tier 2:** label and `name` dictionary patterns
-   ([`dictionary.ts`](src/background/resolver/dictionary.ts).
-3. **Tier 3:** fuzzy matching against profile keys.
+1. **Tier 1:** the `autocomplete` attribute. Confidence 1.0.
+2. **Tier 2:** label and `name` dictionary patterns ([`dictionary.ts`](src/background/resolver/dictionary.ts)).
+   - Confidence 0.9 from the label or name; 0.7 from placeholder or short nearby text.
+   - Ignores text about someone else ("Referrer email"), and verb uses like "Please *state* your…".
+3. **Tier 3:** fuzzy matching, for wordings the patterns miss ("Best number to reach you").
+   - Compares the field's words against each key's synonym phrases, ignoring filler words like "what" and "you".
+   - Accepted only at similarity 0.6 or above.
+   - Confidence is capped at 0.6, so a fuzzy fill is always flagged for review.
 4. **Tier 4 (later):** site adapters.
 5. **Tier 5 (later):** optional AI fallback with your own key.
 
@@ -40,7 +44,7 @@ npm run build
 
 `npm test` runs the resolver unit tests with Node's built-in test runner. `npm run build` runs them too.
 
-## Testing (steps 5–9)
+## Testing
 
 1. Run `npm run dev`. The scanner logs only in dev builds; `npm run build` output is silent.
 2. Reload the extension on `chrome://extensions`.

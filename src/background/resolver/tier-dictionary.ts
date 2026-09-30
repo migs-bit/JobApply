@@ -1,6 +1,6 @@
 import { CONFIDENCE } from '../../shared/constants';
 import type { FieldCandidate, Profile, ResolvedField } from '../../shared/types';
-import { FIELD_PATTERNS, NEGATIVE_CONTEXT } from './dictionary';
+import { FIELD_PATTERNS, KEY_EXCLUSIONS, NEGATIVE_CONTEXT } from './dictionary';
 import { canResolve, isCompatible } from './field-rules';
 
 /**
@@ -37,7 +37,7 @@ export function tierDictionary(field: FieldCandidate, profile: Profile): Resolve
 
     for (const [key, patterns] of FIELD_PATTERNS) {
       const pattern = patterns.find((p) => p.test(text));
-      if (!pattern || !isCompatible(field, key) || !canResolve(profile, key)) continue;
+      if (!pattern || KEY_EXCLUSIONS[key]?.test(text) || !isCompatible(field, key) || !canResolve(profile, key)) continue;
       return {
         fieldId: field.id,
         key,

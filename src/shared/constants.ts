@@ -58,7 +58,8 @@ export const CONFIDENCE = {
   autocomplete: 1.0,
   dictionaryStrong: 0.9, // pattern matched `name` or `label`
   dictionaryWeak: 0.7, // pattern matched `placeholder` or `nearbyText`
-  fuzzyMinimum: 0.6, // fuzzy matches below this are rejected
+  fuzzyMinimum: 0.6, // Tier 3: token-set similarity below this is rejected (→ unknown)
+  fuzzyMaximum: 0.6, // Tier 3: confidence = similarity × this, so fuzzy never looks as sure as a dictionary hit
 } as const;
 
 /** Fills below this confidence are flagged for review in the overlay. */

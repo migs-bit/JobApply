@@ -2,6 +2,7 @@ import type { FieldCandidate, Profile, ResolvedField } from '../../shared/types'
 import { unfillableReason } from './field-rules';
 import { tierAutocomplete } from './tier-autocomplete';
 import { tierDictionary } from './tier-dictionary';
+import { tierFuzzy } from './tier-fuzzy';
 
 /**
  * Tiered field resolver. Each tier is a pure function; the first one that
@@ -13,7 +14,8 @@ export type Tier = (field: FieldCandidate, profile: Profile) => ResolvedField | 
 const TIERS: readonly Tier[] = [
   tierAutocomplete, // Tier 1
   tierDictionary, // Tier 2
-  // Tier 3 (fuzzy) is build step 10; Tiers 4-5 are post-MVP.
+  tierFuzzy, // Tier 3: only reached when Tiers 1-2 found nothing
+  // Tiers 4-5 (site adapters, AI fallback) are post-MVP.
 ];
 
 export function resolveField(field: FieldCandidate, profile: Profile): ResolvedField {

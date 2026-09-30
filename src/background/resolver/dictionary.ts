@@ -20,7 +20,8 @@ export const FIELD_PATTERNS: ReadonlyArray<readonly [ResolvableKey, readonly Reg
   ['email', [/\be ?mail\b/]],
   ['phone', [/\b(phone|mobile|cell|telephone|tel)\b/]],
   ['addressLine1', [/\baddress line 1\b/, /\baddress 1\b/, /^(street )?address$/, /^street\b/]],
-  ['addressLine2', [/\baddress line 2\b/, /\baddress 2\b/, /\b(apt|apartment|suite|unit)\b/]],
+  // "unit"/"suite" only at the start or as "<word> number": "Business unit" isn't an address.
+  ['addressLine2', [/\baddress line 2\b/, /\baddress 2\b/, /^(apt|apartment|suite|unit)\b/, /\b(apt|apartment|suite|unit) (number|no)\b/]],
   ['city', [/\bcity\b/, /\btown\b/]],
   ['state', [/\bstate\b/, /\bprovince\b/, /\bregion\b/]],
   ['postalCode', [/\bzip( code)?\b/, /\bpostal( code)?\b/, /\bpostcode\b/]],
@@ -42,6 +43,15 @@ export const NEGATIVE_CONTEXT =
   /\b(referr?(al|er|ed)|reference|emergency|manager|supervisor|recruiter|company|employer|school|university|college)\b/;
 
 /**
+ * Per-key exceptions: text where a key's word is used in another sense.
+ * "Please state your salary expectations" uses "state" as a verb. Checked by
+ * Tiers 2 and 3 before accepting that key.
+ */
+export const KEY_EXCLUSIONS: Partial<Readonly<Record<ResolvableKey, RegExp>>> = {
+  state: /\b(please|briefly|clearly|kindly) state\b|\bstate (your|why|how|what|whether|any|the reason)\b/,
+};
+
+/**
  * Browser-standard autocomplete field tokens → keys (Tier 1).
  * https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#autofill
  */
@@ -61,3 +71,30 @@ export const AUTOCOMPLETE_MAP: Readonly<Record<string, ResolvableKey>> = {
   'country-name': 'country',
   url: 'website',
 };
+
+/**
+ * Tier 3 synonym phrases, compared by token-set similarity (tier-fuzzy.ts).
+ * They're for wordings the regexes above miss ("Best number to reach you",
+ * "Electronic mail address"). Phrases are tokenized the same way as field
+ * text: stopwords like "what/you/to/the" dropped, so "call you" is just {call}.
+ *
+ * Keep these specific. A bare "url" or "name" here would re-create the false
+ * positives the dictionary was tightened against.
+ */
+export const FUZZY_SYNONYMS: ReadonlyArray<readonly [ResolvableKey, readonly string[]]> = [
+  ['firstName', ['first name', 'given name', 'preferred name', 'call you', 'forename']],
+  ['lastName', ['last name', 'family name', 'surname']],
+  ['fullName', ['full name', 'legal name', 'full legal name', 'complete name', 'applicant name', 'candidate name']],
+  ['email', ['email address', 'electronic mail', 'electronic mail address', 'contact email']],
+  ['phone', ['phone number', 'telephone number', 'mobile number', 'cell number', 'contact number', 'number to reach you']],
+  ['addressLine1', ['street address', 'home address', 'mailing address', 'residential address', 'address line one']],
+  ['addressLine2', ['address line two', 'apartment number', 'suite number', 'unit number']],
+  ['city', ['city', 'town', 'city of residence', 'municipality', 'locality']],
+  ['state', ['state', 'province', 'state or province', 'region']],
+  ['postalCode', ['zip', 'zip code', 'zipcode', 'postal code', 'post code', 'postcode']],
+  ['country', ['country', 'country of residence', 'nation']],
+  // Both spellings: the camelCase split turns "LinkedIn" into "linked in", a lowercase attribute stays "linkedin".
+  ['linkedin', ['linkedin', 'LinkedIn', 'linkedin profile', 'LinkedIn profile']],
+  ['github', ['github', 'GitHub', 'github profile', 'GitHub profile']],
+  ['website', ['personal website', 'portfolio', 'homepage', 'home page', 'personal site']],
+];
