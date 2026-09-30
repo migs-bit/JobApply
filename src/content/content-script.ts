@@ -1,19 +1,19 @@
 /**
- * Content script (step 6): scan the page, ask the service worker to resolve
- * each field to a profile key, and log both. No filling and no overlay yet.
- * The resolver's answer carries keys and confidence only, never profile values.
+ * Content script (step 7): scan the page, get a fill plan from the service
+ * worker, fill the fields, and log what happened. No overlay yet (step 9).
  *
  * It's injected on demand with chrome.scripting.executeScript (activeTab),
  * never declared in manifest.json `content_scripts`, so the extension has no
- * access to a page until the user asks. Each injection runs one fresh scan.
+ * access to a page until the user asks. Each injection runs one fresh pass;
+ * running it again skips fields that are already filled.
  *
  * All output goes through debug(), so production builds log nothing. Use
- * `npm run dev` to see it.
+ * `npm run dev` to see it. Logs never include filled values, even in dev.
  */
-import { REVIEW_THRESHOLD } from '../shared/constants';
 import { debug, debugTable } from '../shared/log';
 import { sendToBackground } from '../shared/messaging';
-import type { FieldCandidate, ResolvedField } from '../shared/types';
+import type { FieldCandidate, FillPlan, FillResult } from '../shared/types';
+import { applyFill } from './filler/dom-filler';
 import { scanFields } from './scanner/dom-scanner';
 
 async function run(): Promise<void> {
@@ -48,38 +48,56 @@ async function run(): Promise<void> {
   const iframes = document.querySelectorAll('iframe').length;
   if (iframes > 0) debug(`${iframes} iframe(s) on this page were not scanned (MVP limitation)`);
 
-  if (fields.length > 0) await logResolutions(fields);
-}
+  if (fields.length === 0) return;
 
-async function logResolutions(fields: FieldCandidate[]): Promise<void> {
-  const res = await sendToBackground<ResolvedField[]>({ type: 'RESOLVE_FIELDS', fields });
+  const res = await sendToBackground<FillPlan>({ type: 'RESOLVE_FIELDS', fields });
   if (!res.ok) {
     debug('resolve failed:', res.error);
     return;
   }
+  logResolutions(fields, res.data);
 
-  const byId = new Map(fields.map((f) => [f.id, f]));
-  const matched = res.data.filter((r) => r.key !== 'unknown');
-  const review = matched.filter((r) => r.confidence < REVIEW_THRESHOLD).length;
-  debug(`resolve: ${matched.length} of ${fields.length} matched, ${review} need review`);
-  debugTable(
-    res.data.map((r) => {
-      const f = byId.get(r.fieldId);
-      return {
-        field: f ? f.label || f.ariaLabel || f.placeholder || f.name : r.fieldId,
-        type: f ? f.type || f.tag : '',
-        key: r.key,
-        confidence: r.confidence,
-        source: r.source,
-        review: r.key !== 'unknown' && r.confidence < REVIEW_THRESHOLD,
-        evidence: r.evidence,
-      };
-    }),
-  );
-  debug('resolutions', res.data);
+  const results = applyFill(res.data.instructions);
+  logFill(fields, results);
 }
 
-const start = () => void run().catch((err: unknown) => console.error('Job Autofill scan failed', err));
+function labelOf(fields: FieldCandidate[], fieldId: string): string {
+  const f = fields.find((x) => x.id === fieldId);
+  return f ? f.label || f.ariaLabel || f.placeholder || f.name : fieldId;
+}
+
+function logResolutions(fields: FieldCandidate[], plan: FillPlan): void {
+  const matched = plan.resolutions.filter((r) => r.key !== 'unknown').length;
+  debug(`resolve: ${matched} of ${fields.length} matched, ${plan.instructions.length} have a profile value`);
+  debugTable(
+    plan.resolutions.map((r) => ({
+      field: labelOf(fields, r.fieldId),
+      key: r.key,
+      confidence: r.confidence,
+      source: r.source,
+      evidence: r.evidence,
+    })),
+  );
+  debug('resolutions', plan.resolutions); // value-free; instructions are never logged
+}
+
+function logFill(fields: FieldCandidate[], results: FillResult[]): void {
+  const count = (s: FillResult['status']) => results.filter((r) => r.status === s).length;
+  const review = results.filter((r) => r.status === 'filled' && r.requiresReview).length;
+  debug(`fill: ${count('filled')} filled (${review} need review), ${count('skipped')} skipped, ${count('failed')} failed`);
+  debugTable(
+    results.map((r) => ({
+      field: labelOf(fields, r.fieldId),
+      key: r.key,
+      status: r.status,
+      reason: r.reason ?? '',
+      review: r.requiresReview,
+      source: r.source,
+    })),
+  );
+}
+
+const start = () => void run().catch((err: unknown) => console.error('Job Autofill failed', err));
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', start, { once: true });
 } else {

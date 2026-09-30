@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Filler cases</title>
+    <style>
+      body { font: 15px/1.5 system-ui, sans-serif; max-width: 640px; margin: 32px auto; padding: 0 16px; }
+      .case { margin: 0 0 12px; }
+      label { display: block; font-weight: 600; }
+      input, select, textarea { width: 100%; padding: 6px; font: inherit; box-sizing: border-box; }
+      .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+      .offscreen { position: absolute; left: -9999px; top: 0; }
+    </style>
+  </head>
+  <body>
+    <h1>Filler cases</h1>
+    <p>
+      Save a profile first (see README → Testing). Each control declares the expected outcome in
+      <code>data-expect-fill</code>: <code>filled</code>, <code>skipped: &lt;reason&gt;</code>, or
+      <code>untouched</code> (no instruction is sent at all).
+    </p>
+    <form>
+      <div class="case"><label for="fn">First name</label><input id="fn" name="first_name" data-expect-fill="filled" /></div>
+      <div class="case"><label for="em">Email</label><input id="em" type="email" name="email" data-expect-fill="filled" /></div>
+      <div class="case"><label for="ln">Last name</label><input id="ln" name="last_name" value="Existing" data-expect-fill="skipped: already has a value" /></div>
+      <div class="case"><label for="addr">Address</label><textarea id="addr" name="address" data-expect-fill="filled"></textarea></div>
+      <div class="case">
+        <label for="country">Country</label>
+        <select id="country" name="country" data-expect-fill="filled">
+          <option value="">Select…</option><option value="US">United States</option><option value="CA">Canada</option>
+        </select>
+      </div>
+      <div class="case">
+        <label for="state">State / province</label>
+        <select id="state" name="state" data-expect-fill="skipped: no matching option">
+          <option value="">Select…</option><option>California</option><option>Texas</option>
+        </select>
+      </div>
+      <div class="case"><label for="city">City</label><input id="city" name="city" maxlength="3" data-expect-fill="skipped: value longer than the field allows" /></div>
+
+      <!-- Hidden-field phishing: none of these may receive data. -->
+      <div class="case"><label for="ph">Phone</label><input id="ph" name="phone" style="opacity: 0" data-expect-fill="skipped: not visible" /></div>
+      <div class="case offscreen"><label for="li">LinkedIn</label><input id="li" name="linkedin" data-expect-fill="skipped: not visible" /></div>
+      <div class="case"><label for="gh">GitHub</label><input id="gh" name="github" class="sr-only" data-expect-fill="skipped: not visible" /></div>
+      <div class="case" style="opacity: 0"><label for="zip">Postal code</label><input id="zip" name="postal" data-expect-fill="skipped: not visible" /></div>
+      <div class="case"><label for="web">Website</label><div style="width: 1px; height: 1px; overflow: hidden"><input id="web" name="website" data-expect-fill="skipped: not visible" /></div></div>
+      <div class="case"><label for="a2">Address line 2</label><input id="a2" name="address2" style="clip-path: inset(50%)" data-expect-fill="skipped: not visible" /></div>
+
+      <!-- Never receive an instruction. -->
+      <div class="case"><label for="pw">Email</label><input id="pw" type="password" name="pw" data-expect-fill="untouched" /></div>
+      <div class="case"><label for="why">Why do you want to work here?</label><textarea id="why" name="why" data-expect-fill="untouched"></textarea></div>
+    </form>
+  </body>
+</html>

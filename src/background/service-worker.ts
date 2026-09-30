@@ -1,14 +1,15 @@
 /**
  * Service worker: owns storage, routes messages, and runs the field resolver.
- * RESOLVE_FIELDS returns only keys/confidence/evidence, never profile values:
- * content scripts live in untrusted pages and get values only when filling.
+ * RESOLVE_FIELDS returns a fill plan: value-free resolutions for every field,
+ * plus profile values only for fields that resolved and have something saved.
+ * Content scripts live in untrusted pages, so they never see the rest.
  *
  * There is deliberately no network code anywhere in the extension. The CSP in
  * manifest.json (`default-src 'none'`) blocks fetch/XHR from extension
  * contexts as a backstop.
  */
+import { buildFillPlan } from './fill-plan';
 import { isAllowedSender, parseMsg } from './message-guard';
-import { resolveFields } from './resolver/field-resolver';
 import { getProfile, restrictStorageToTrustedContexts, saveProfile } from './storage/profile-store';
 import { debug } from '../shared/log';
 import type { Msg, MsgResponse } from '../shared/types';
@@ -20,8 +21,8 @@ chrome.runtime.onInstalled.addListener(({ reason }) => {
   if (reason === chrome.runtime.OnInstalledReason.INSTALL) void chrome.runtime.openOptionsPage();
 });
 
-// TEMPORARY (step 5 testing): clicking the toolbar icon injects the scanner
-// into the current tab. The click is the user gesture that grants activeTab,
+// TEMPORARY (steps 5-7 testing): clicking the toolbar icon injects the
+// content script (scan → resolve → fill) into the current tab. The click is the user gesture that grants activeTab,
 // so no host permissions are needed. Chrome stops firing onClicked once
 // action.default_popup is set, so the step 8 popup replaces this; delete it then.
 chrome.action.onClicked.addListener((tab) => {
@@ -67,7 +68,7 @@ async function handle(msg: Msg): Promise<MsgResponse<unknown>> {
     }
 
     case 'RESOLVE_FIELDS':
-      return { ok: true, data: resolveFields(msg.fields, await getProfile()) };
+      return { ok: true, data: buildFillPlan(msg.fields, await getProfile()) };
   }
 }
 

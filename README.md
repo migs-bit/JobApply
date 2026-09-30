@@ -8,7 +8,7 @@ A Chrome extension (Manifest V3) that autofills job application forms from a pro
 - **The developer receives no data and pays for no API usage.** There is no backend.
 - **Open source**, [MIT licensed](LICENSE).
 
-> **Status: early MVP.** Build steps 1–6 are done: the extension shell, profile storage, the options page, the form scanner, and resolver Tiers 1–2. Fields are detected and matched to profile keys, and the results are logged. Nothing is filled yet.
+> **Status: early MVP.** Build steps 1–7 are done: the extension shell, profile storage, the options page, the form scanner, resolver Tiers 1–2, and the filler. Clicking the toolbar icon fills matched fields. The popup (step 8) and the confirmation overlay (step 9) come next.
 
 ## How it works
 
@@ -40,15 +40,15 @@ npm run build
 
 `npm test` runs the resolver unit tests with Node's built-in test runner. `npm run build` runs them too.
 
-## Testing the scanner and resolver (steps 5–6)
+## Testing (steps 5–7)
 
 1. Run `npm run dev`. The scanner logs only in dev builds; `npm run build` output is silent.
 2. Reload the extension on `chrome://extensions`.
 3. Open a job application page:
    - **Lever:** the posting's `/apply` page.
    - **Ashby:** the posting's **Application** tab.
-   - For offline checks, serve the fixtures with `python3 -m http.server 8000 --directory test-page`. Then open `http://localhost:8000/` or `/scanner-cases.html`.
-4. Open DevTools → **Console** and click the extension's toolbar icon. You'll see:
+   - For offline checks, serve the fixtures with `python3 -m http.server 8000 --directory test-page`. Then open `http://localhost:8000/`, `/scanner-cases.html`, or `/filler-cases.html`. Each control on the case pages declares its expected result.
+4. Open DevTools → **Console** and click the extension's toolbar icon. **This fills the form** with your saved profile; it never submits. You'll see:
    - A summary line.
    - A table of detected fields.
    - The full field objects: right-click → **Copy object** to paste into a bug report.
@@ -57,6 +57,7 @@ npm run build
      - the profile key (or `unknown`), its confidence, and which tier matched;
      - `review` (below 0.8 confidence);
      - `evidence`: *why*, e.g. `label "Email ✱" matched /\be ?mail\b/`.
+   - A table of **fill results**: filled, skipped, or failed, with the reason (e.g. `already has a value`, `not visible`). Filled values are never logged, even in dev builds.
 5. Click the icon again to re-scan, for example after a form section expands.
 
 The toolbar click is a temporary trigger. The step 8 popup's **Fill this page** button replaces it.
@@ -68,6 +69,12 @@ The toolbar click is a temporary trigger. The step 8 popup's **Fill this page** 
 - **Profile values stay in the service worker.** The resolver runs there and returns keys and confidence only, never profile values.
   - Resolution requests are accepted only from the top frame of a tab.
   - Password, checkbox, radio, and file inputs are never mapped to profile data.
+- **Least data to the page.** A profile value goes to the content script only if its field was matched *and* you have saved that value.
+- **Safe filling.** Each target is re-checked when it's filled, since the page can change after the scan:
+  - It must still be a text-like field, enabled, and empty. Existing values are never overwritten.
+  - It must be **visible to you**. Fields that are transparent, clipped, 1px, or off-screen are skipped; hidden fields are a known autofill-phishing trick for harvesting data you never see being filled.
+  - A value that doesn't fit the field's `maxlength` is skipped rather than silently truncated.
+  - Dropdowns are only set on an exact option match. No guessing.
 - **Strict CSP on extension pages:** `default-src 'none'; script-src 'self'`. No inline scripts, no `eval`, and no network connections.
 - **One trust boundary.** Only the service worker touches storage, and it validates every message:
   - It checks the message's shape and bounds its size.

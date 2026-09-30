@@ -68,12 +68,41 @@ export interface ResolvedField {
 }
 
 export interface FillInstruction {
+  /** Ties the instruction back to its FieldCandidate/ResolvedField (logging, overlay). */
+  fieldId: string;
+  key: ResolvableKey;
   selector: string;
   value: string;
   confidence: number;
   source: ResolverSource;
   /** True when confidence is below REVIEW_THRESHOLD. */
   requiresReview: boolean;
+}
+
+/**
+ * The service worker's answer to RESOLVE_FIELDS. Resolutions cover every
+ * field and never carry values; instructions exist only for fields that
+ * resolved *and* have a non-empty profile value. That's the only way profile
+ * data reaches a content script.
+ */
+export interface FillPlan {
+  resolutions: ResolvedField[];
+  instructions: FillInstruction[];
+}
+
+/** Outcome of applying one FillInstruction in the page. Never includes the filled value. */
+export interface FillResult {
+  fieldId: string;
+  key: ResolvableKey;
+  selector: string;
+  status: 'filled' | 'skipped' | 'failed';
+  /** Why a field was skipped or failed. */
+  reason?: string;
+  confidence: number;
+  source: ResolverSource;
+  requiresReview: boolean;
+  /** What the field held before filling, so the overlay's Undo (step 9) can restore it. */
+  previousValue: string;
 }
 
 // ---------------------------------------------------------------------------
