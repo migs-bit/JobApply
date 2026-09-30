@@ -27,7 +27,10 @@ export const FIELD_PATTERNS: ReadonlyArray<readonly [ResolvableKey, readonly Reg
   ['country', [/\bcountry\b/]],
   ['linkedin', [/\blinked ?in\b/]],
   ['github', [/\bgit ?hub\b/]],
-  ['website', [/\bwebsite\b/, /\bportfolio\b/, /\bpersonal (site|page)\b/, /\burl\b/]],
+  // No bare /url/: "Project URL", "Twitter URL", "Replit Profile URL" are
+  // links, but not the applicant's personal site. "url" only counts when
+  // paired with personal/site wording.
+  ['website', [/\bweb ?site\b/, /\bportfolio\b/, /\bpersonal (site|page|url|link)\b/, /\bsite url\b/]],
 ];
 
 /**

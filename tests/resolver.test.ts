@@ -97,6 +97,26 @@ describe('real-world field shapes', () => {
   });
 });
 
+describe('URL fields', () => {
+  it('personal-site wording resolves to website', () => {
+    for (const label of ['Website', 'Personal website', 'Web site', 'Portfolio URL', 'Personal URL', 'Personal site', 'Site URL']) {
+      assert.equal(keyOf({ label }), 'website', label);
+    }
+  });
+  it('other links fall through to unknown, as text or type="url"', () => {
+    for (const label of ['Project URL', 'Replit Profile URL', 'Twitter URL', 'URL', 'Other URL']) {
+      assert.equal(keyOf({ label }), 'unknown', label);
+      assert.equal(keyOf({ type: 'url', label }), 'unknown', `${label} (type=url)`);
+    }
+    assert.equal(keyOf({ name: 'urls[Twitter]', label: 'Twitter URL' }), 'unknown');
+  });
+  it('LinkedIn and GitHub still win over the generic website key', () => {
+    assert.equal(keyOf({ label: 'LinkedIn Profile URL' }), 'linkedin');
+    assert.equal(keyOf({ type: 'url', label: 'GitHub URL' }), 'github');
+    assert.equal(keyOf({ label: 'LinkedIn or personal website' }), 'linkedin');
+  });
+});
+
 describe('false-positive guards', () => {
   it('whole words only ("excellent" is not "cell")', () => {
     assert.equal(keyOf({ label: 'Describe an excellent result' }), 'unknown');
