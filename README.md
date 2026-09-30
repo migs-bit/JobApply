@@ -1,102 +1,127 @@
 # Job Autofill
 
-A Chrome extension (Manifest V3) that autofills job application forms from a profile you keep on your own device.
+A Chrome extension that fills in the repetitive parts of job applications (name, email, phone, address, links) from a profile stored only on your computer.
 
-- **Local-first.** No data leaves your device in the default configuration. The extension makes no network requests at all: there is no network code, and its Content Security Policy blocks network access as a backstop.
-- **No telemetry.** No analytics, no error reporting, and no phone-home.
-- **AI is optional (coming later).** A future AI fallback for unusual fields will require **your own** API key and your explicit consent before first use.
-- **The developer receives no data and pays for no API usage.** There is no backend.
+- **Private by design.** No account, no server, no network requests, and no telemetry. Your profile never leaves your browser. The developer receives no data and pays for no API usage.
+- **Explainable.** It uses deterministic matching rules, not a black box, and every filled field shows why it was matched and how confident the match is.
+- **You stay in control.** It never submits anything, never overwrites what's already typed, and has one-click Undo.
 - **Open source**, [MIT licensed](LICENSE).
 
-> **Status: MVP complete.** All ten build steps are done: the extension shell, profile storage, the options page, the form scanner, resolver Tiers 1–3, the filler, the popup, and the confirmation overlay. Click the toolbar icon, then **Fill this page**.
+> **Status: MVP v1** (tag `mvp-v1`). Tested on Lever and Ashby application forms. See [MVP.md](MVP.md) for what's built, what's tested, and what's deferred.
 
-## How it works
+## What it does
 
-Every detected form field goes through deterministic tiers. The first match wins, and each fill records which tier matched, so you can always see *why* a field got a value:
+1. **You click Fill this page.** The extension finds the form fields on the current tab.
+2. **It matches each field to your profile.** For example, "Full name ✱" → your first and last name, and "LinkedIn URL" → your LinkedIn link.
+3. **It fills the matched fields** that are empty and visible, in a way that works with React and other modern web frameworks.
+4. **A small panel lists everything it filled,** with confidence scores. Low-confidence fills are highlighted in yellow for you to double-check, and **Undo** reverts them.
 
-1. **Tier 1:** the `autocomplete` attribute. Confidence 1.0.
-2. **Tier 2:** label and `name` dictionary patterns ([`dictionary.ts`](src/background/resolver/dictionary.ts)).
-   - Confidence 0.9 from the label or name; 0.7 from placeholder or short nearby text.
-   - Ignores text about someone else ("Referrer email"), and verb uses like "Please *state* your…".
-3. **Tier 3:** fuzzy matching, for wordings the patterns miss ("Best number to reach you").
-   - Compares the field's words against each key's synonym phrases, ignoring filler words like "what" and "you".
-   - Accepted only at similarity 0.6 or above.
-   - Confidence is capped at 0.6, so a fuzzy fill is always flagged for review.
-4. **Tier 4 (later):** site adapters.
-5. **Tier 5 (later):** optional AI fallback with your own key.
+Profile fields: first and last name, email, phone, address (two lines, city, state, postal code, country), LinkedIn, GitHub, and website.
 
-Anything unmatched is left for you to fill in by hand.
+## What it doesn't do (yet)
 
-## Install (development)
+| Not supported | What happens |
+|---|---|
+| **Workday** and other heavily customized application systems | Not supported or tested. Their forms are built from custom widgets and multi-step flows. |
+| **Forms inside iframes**, e.g. Greenhouse forms embedded on a company's careers page | Not scanned. Open the form on its own page (boards.greenhouse.io) instead. |
+| **Custom widgets**: type-to-search boxes, custom dropdowns, shadow DOM components | Not filled. Only standard text inputs, text areas, and plain `<select>` dropdowns are filled. |
+| **File uploads** (resume, cover letter) | Not supported. You attach files yourself. |
+| **Checkboxes, radio buttons, open-ended questions** ("Why do you want to work here?") | Left for you. Detected, but never filled. |
+| **Submitting or clicking "Next"** | Never. Multi-page forms need a click on **Fill this page** for each page. |
+| **AI-written answers** | Not in this version. A future optional AI fallback will require **your own** API key and explicit consent before first use. |
 
-Requires Node 20+ and Chrome 120+.
+## Install
+
+There's no Chrome Web Store listing yet; install from source. Requires Node 20+ and Chrome 120+.
 
 ```bash
+git clone <this repo> && cd <repo>
 npm ci
 npm run build
 ```
 
-1. Open `chrome://extensions` and enable **Developer mode**.
-2. Click **Load unpacked** and select the `dist/` folder.
-3. The profile page opens automatically. Fill it in and click **Save**.
+1. In Chrome, open `chrome://extensions` and turn on **Developer mode**.
+2. Click **Load unpacked** and choose the `dist/` folder.
+3. The profile page opens automatically. Enter your details and click **Save**. To reopen it later: right-click the extension icon → **Options**.
 
-`npm run dev` rebuilds on change, with debug logging enabled. After each rebuild, click the reload icon on the extension's card.
+## Use
 
-`npm test` runs the resolver unit tests with Node's built-in test runner. `npm run build` runs them too.
+1. Open a job application form, e.g. a Lever `/apply` page or an Ashby posting's **Application** tab.
+2. Click the extension icon → **Fill this page**.
+3. Review the panel in the top-right corner:
+   - **Yellow rows** (and yellow outlines on the page) are low-confidence; check them.
+   - **Undo** restores the fields it filled, but leaves anything you've edited since.
+   - **Close** or **Esc** dismisses the panel. It closes on its own when everything is high-confidence.
+4. Fill in the rest yourself: custom questions, file uploads, checkboxes. Then submit as usual.
 
-## Testing
+If nothing can be filled, the popup stays open and says why, e.g. "No form fields found on this page." Browser pages like `chrome://` are off-limits to all extensions.
 
-1. Run `npm run dev`. The scanner logs only in dev builds; `npm run build` output is silent.
-2. Reload the extension on `chrome://extensions`.
-3. Open a job application page:
-   - **Lever:** the posting's `/apply` page.
-   - **Ashby:** the posting's **Application** tab.
-   - For offline checks, serve the fixtures with `python3 -m http.server 8000 --directory test-page`. Then open `http://localhost:8000/`, `/scanner-cases.html`, or `/filler-cases.html`. Each control on the case pages declares its expected result.
-4. Click the extension's toolbar icon, then **Fill this page**. **This fills the form** with your saved profile; it never submits. When something is filled, the popup closes itself so the results panel (below) isn't hidden behind it. When nothing is filled, the popup stays open and says why, e.g. "No form fields found on this page." For details, open the page's DevTools → **Console** before clicking. You'll see:
-   - A summary line.
-   - A table of detected fields.
-   - The full field objects: right-click → **Copy object** to paste into a bug report.
-   - A table of skipped controls, each with a reason.
-   - A table of **resolutions**, one row per field:
-     - the profile key (or `unknown`), its confidence, and which tier matched;
-     - `review` (below 0.8 confidence);
-     - `evidence`: *why*, e.g. `label "Email ✱" matched /\be ?mail\b/`.
-   - A table of **fill results**: filled, skipped, or failed, with the reason (e.g. `already has a value`, `not visible`). Filled values are never logged, even in dev builds.
-5. A panel appears in the page's top-right corner listing each filled field with its value, confidence, and which tier matched it:
-   - **Yellow rows** (and a yellow outline on the field itself) are low-confidence and need a quick review. They're listed first.
-   - **Undo** puts back what was there before, but leaves any field you've edited since.
-   - **Close** or **Esc** dismisses the panel. It closes on its own after a few seconds when everything is high-confidence.
-6. Click **Fill this page** again to re-scan, for example after a form section expands. Fields that already have a value are left alone.
+## How it decides what goes where
 
-## Security model
+Each field goes through three matching tiers in order, and the first match wins:
 
-- **Minimal permissions:** `storage`, `activeTab`, and `scripting`, with no host permissions and no `content_scripts`. The extension can't see any website until you open its popup on a tab, and then only that tab. Chrome shows no install permission warnings.
-- **The overlay can't be read or driven by the page.** It lives in a closed shadow root built with `textContent` only, so page-supplied labels can't inject markup. It shows only values the extension just filled, which are already in the page's own fields. Its styles use a constructable stylesheet, so they work under strict page CSPs.
-- **The popup holds no profile data.** It asks the page to fill and gets back counts only ("Filled 4 of 5"). The content script accepts that request only from the extension's own pages, never from the website or other extensions.
-- **The scanner never reads field values.** It reads labels and surrounding text only, and skips the contents of `<textarea>` and `<select>`.
-- **Profile values stay in the service worker.** The resolver runs there and returns keys and confidence only, never profile values.
-  - Resolution requests are accepted only from the top frame of a tab.
-  - Password, checkbox, radio, and file inputs are never mapped to profile data.
-- **Least data to the page.** A profile value goes to the content script only if its field was matched *and* you have saved that value.
-- **Safe filling.** Each target is re-checked when it's filled, since the page can change after the scan:
-  - It must still be a text-like field, enabled, and empty. Existing values are never overwritten.
-  - It must be **visible to you**. Fields that are transparent, clipped, 1px, or off-screen are skipped; hidden fields are a known autofill-phishing trick for harvesting data you never see being filled.
-  - A value that doesn't fit the field's `maxlength` is skipped rather than silently truncated.
-  - Dropdowns are only set on an exact option match. No guessing.
-- **Strict CSP on extension pages:** `default-src 'none'; script-src 'self'`. No inline scripts, no `eval`, and no network connections.
-- **One trust boundary.** Only the service worker touches storage, and it validates every message:
-  - It checks the message's shape and bounds its size.
-  - Profile messages are accepted only from the extension's own pages. Content scripts, which run inside untrusted websites, can never read the full profile.
-  - `chrome.storage.local` is restricted to trusted extension contexts.
-- **Input sanitizing.** Profile values are stripped of control and bidi-override characters and length-capped. Link fields must be `http(s)` URLs.
-- **Production builds never log profile data.** Debug logging is compiled out.
-- **Supply chain.** Dependencies are pinned to exact versions, and `.npmrc` disables npm install scripts. The runtime dependencies are only React and React DOM.
+| Tier | Signal | Confidence |
+|---|---|---|
+| 1. Autocomplete | The page's own `autocomplete="email"`-style hint | 1.0 |
+| 2. Dictionary | Word patterns in the field's label and name | 0.9 |
+| | The same patterns in its placeholder or short nearby text | 0.7 |
+| 3. Fuzzy | Word overlap with synonym phrases ("Best number to reach you" → phone) | 0.6 max |
 
-To report a vulnerability, see [SECURITY.md](SECURITY.md).
+- **Flagged for review:** anything below 0.8. That covers every Tier 3 match, which is why fuzzy fills always show in yellow.
+- **Left for you:** anything that matches no tier.
+- **Type rules:** a field's type limits what it can match. An email box can only get your email, and a dropdown only a country or state.
+- **Guarded against false positives:** "Referrer email", "Company website" and "Please *state* your salary…" all stay unmatched.
+
+## Privacy and security
+
+- **No network access at all.** There is no network code, and the extension's Content Security Policy (`default-src 'none'`) blocks requests as a backstop.
+- **Minimal permissions:** `storage`, `activeTab`, and `scripting`. There are no website permissions, so Chrome shows no install warnings, and the extension can only touch a tab after you click **Fill this page** on it.
+- **Your profile stays in the extension's background process.** A web page only ever receives the values for the fields actually being filled. The popup and logs never contain profile values.
+- **Hidden fields are never filled,** whether transparent, clipped, 1px, or off-screen. Hidden fields are a known autofill-phishing trick for harvesting data you never see being filled.
+- **The results panel is isolated from the page.** It's built in a closed shadow root, and page text is inserted only as plain text, so a hostile page can't read it, restyle it, or inject content into it.
+- **Supply chain.** Dependency versions are pinned exactly, npm install scripts are disabled, and the only runtime dependencies are React and React DOM.
+
+Found a vulnerability? See [SECURITY.md](SECURITY.md).
+
+## Development
+
+```bash
+npm run dev        # rebuild on change, with debug logging (reload the extension after each build)
+npm test           # unit tests (Node's built-in runner)
+npm run build      # typecheck + tests + production build (debug logging compiled out)
+```
+
+**Debug output:** with a dev build, open the page's DevTools console before clicking **Fill this page**. You'll see tables of:
+- detected fields, and skipped controls with the reason each was skipped;
+- how each field was matched, with `evidence` explaining why, e.g. `label "Email ✱" matched /\be ?mail\b/`;
+- fill results. Filled values are never logged, even in dev builds.
+
+**Test pages:** `python3 -m http.server 8000 --directory test-page`, then open:
+- `index.html`: a sample application;
+- `scanner-cases.html`: scanner edge cases;
+- `filler-cases.html`: fill and safety cases.
+
+Every control on the two case pages declares its expected result.
+
+**Layout:**
+
+```
+src/background/   service worker: storage, message validation, resolver (tiers 1-3), fill plan
+src/content/      injected on click: scanner, filler, results panel
+src/popup/        "Fill this page" popup
+src/options/      profile editor
+src/shared/       types, constants, validation
+tests/            unit tests
+test-page/        fixture pages for manual checks
+```
 
 ## Contributing
 
-Site adapters (Tier 4) will live in their own folder, one small file per site. Contribution guidelines will be added once that system exists. Until then, issues and PRs for the core tiers are welcome.
+Issues and PRs are welcome. The most useful contributions right now:
+- **Bug reports:** paste the dev-build console tables for a form that fills incorrectly.
+- **Dictionary improvements:** additions to [`dictionary.ts`](src/background/resolver/dictionary.ts), each with a unit test.
+
+**Site adapters** (Tier 4, planned) will each be one small file per site, in their own folder, with a fixture page and tests. Contribution guidelines for them will be added once the adapter interface exists.
 
 ## License
 
