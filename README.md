@@ -7,7 +7,9 @@ A Chrome extension that fills in the repetitive parts of job applications (name,
 - **You stay in control.** It never submits anything, never overwrites what's already typed, and has one-click Undo.
 - **Open source**, [MIT licensed](LICENSE).
 
-> **Status: MVP v1** (tag `mvp-v1`). Tested on Lever and Ashby application forms. See [MVP.md](MVP.md) for what's built, what's tested, and what's deferred.
+> **Status:** MVP v1 (`0.1.0`, tag `mvp-v1`) plus Phase 1: expanded profile and dropdown filling. Tested on Lever and Ashby application forms.
+> - What changed: [CHANGELOG.md](CHANGELOG.md)
+> - What's next: [ROADMAP.md](ROADMAP.md)
 
 ## What it does
 
@@ -101,6 +103,7 @@ Found a vulnerability? See [SECURITY.md](SECURITY.md).
 ```bash
 npm run dev        # rebuild on change, with debug logging (reload the extension after each build)
 npm test           # unit tests (Node's built-in runner)
+npm run test:e2e   # browser end-to-end suites in headless Chrome (see tests/README.md)
 npm run build      # typecheck + tests + production build (debug logging compiled out)
 ```
 
@@ -110,7 +113,7 @@ npm run build      # typecheck + tests + production build (debug logging compile
 - fill results;
 - one row per dropdown, with its key, the option chosen (or why none was), and the options available.
 
-Text-field values are never logged. Dev builds do log which dropdown option was chosen, to make matching problems diagnosable. Production builds log nothing.
+Text-field values are never logged. Dev builds do log which dropdown option was chosen, to make matching problems diagnosable. Production builds have no debug logging. See [SECURITY.md](SECURITY.md#logging-policy).
 
 **Test pages:** `python3 -m http.server 8000 --directory test-page`, then open:
 - `index.html`: a sample application;
@@ -134,15 +137,16 @@ test-page/        fixture pages for manual checks
 
 ## Roadmap
 
-See [ROADMAP.md](ROADMAP.md): iframe-embedded forms (iCIMS, embedded Greenhouse), radio buttons, custom widgets, and more.
+See [ROADMAP.md](ROADMAP.md). Next up: radio buttons, type-to-search widgets, iframe-embedded forms (iCIMS, then embedded Greenhouse), resume upload, and a local answer library.
 
 ## Contributing
 
-Issues and PRs are welcome. The most useful contributions right now:
-- **Bug reports:** paste the dev-build console tables for a form that fills incorrectly.
-- **Dictionary improvements:** additions to [`dictionary.ts`](src/background/resolver/dictionary.ts), each with a unit test.
+Issues and PRs are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for:
+- building and testing;
+- adding a profile key, a dropdown synonym, or a dictionary pattern;
+- the planned shape of site adapters.
 
-**Site adapters** (Tier 4, planned) will each be one small file per site, in their own folder, with a fixture page and tests. Contribution guidelines for them will be added once the adapter interface exists.
+The most useful bug report is a dev build's console tables for a form that fills incorrectly. Redact them first: they can include your dropdown answers.
 
 ## License
 

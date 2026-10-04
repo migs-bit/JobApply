@@ -1,5 +1,7 @@
 # MVP v1: summary
 
+> **Historical record** of the `mvp-v1` tag (version `0.1.0`). Later changes are in [CHANGELOG.md](CHANGELOG.md). The browser end-to-end harnesses mentioned below as "not yet in the repo" have since been rebuilt in `tests/e2e/`.
+
 Tag `mvp-v1` on branch `MVPv1`, September 2026. The original spec, including the step 4 addendum, is in [Brief.md](Brief.md).
 
 ## What's built

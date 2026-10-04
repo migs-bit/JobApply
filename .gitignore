@@ -4,3 +4,9 @@ dist/
 *.log
 .env
 .env.*
+
+# Scratch notes and one-off prompts (not specs; see CONTRIBUTING.md)
+prompt.md
+todo.md
+scratch*.md
+*.local.md
