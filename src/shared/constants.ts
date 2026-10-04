@@ -19,6 +19,15 @@ export const PROFILE_KEYS = [
   'linkedin',
   'github',
   'website',
+  'desiredSalary',
+  'noticePeriod',
+  'workAuthorization',
+  'requiresSponsorship',
+  'willingToRelocate',
+  'gender',
+  'race',
+  'veteranStatus',
+  'disabilityStatus',
 ] as const satisfies readonly ProfileKey[];
 
 type MissingKeys = Exclude<ProfileKey, (typeof PROFILE_KEYS)[number]>;
@@ -32,6 +41,23 @@ export const EMPTY_PROFILE: Readonly<Profile> = Object.freeze(
 
 /** Profile keys whose value must be an http(s) URL. */
 export const URL_KEYS: ReadonlySet<ProfileKey> = new Set(['linkedin', 'github', 'website']);
+
+/** Profile keys answered with exactly 'Yes' or 'No' (or left empty). */
+export const YES_NO_KEYS: ReadonlySet<ProfileKey> = new Set(['workAuthorization', 'requiresSponsorship', 'willingToRelocate']);
+
+/** Voluntary self-identification (EEO) keys: only matched from labels/names, never from prose. */
+export const EEO_KEYS: ReadonlySet<ProfileKey> = new Set(['gender', 'race', 'veteranStatus', 'disabilityStatus']);
+
+/**
+ * Answers with legal, hiring, or negotiation consequences. Their fills are
+ * always flagged for review, however confident the match, so the user sees
+ * exactly what's about to be submitted.
+ */
+export const ALWAYS_REVIEW_KEYS: ReadonlySet<ProfileKey> = new Set([
+  ...EEO_KEYS,
+  ...YES_NO_KEYS,
+  'desiredSalary',
+]);
 
 export const STORAGE_KEYS = {
   profile: 'profile',

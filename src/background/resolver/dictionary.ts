@@ -19,6 +19,21 @@ export const FIELD_PATTERNS: ReadonlyArray<readonly [ResolvableKey, readonly Reg
   ['fullName', [/\bfull name\b/, /\blegal name\b/, /^(your )?name$/]],
   ['email', [/\be ?mail\b/]],
   ['phone', [/\b(phone|mobile|cell|telephone|tel)\b/]],
+  // Question keys come before the address keys: their questions contain
+  // address words ("authorized to work in the country…", "relocate to another city?").
+  ['workAuthorization', [/\b(authori[sz]ed|eligible|permitted) to work\b/, /\bwork authori[sz]ation\b/, /\bright to work\b/, /\bwork (permit|eligibility)\b/]],
+  ['requiresSponsorship', [/\bsponsor(ship|ed)?\b/]],
+  ['willingToRelocate', [/\brelocat(e|ion|ing)\b/]],
+  ['desiredSalary', [
+    /\b(desired|expected|target|requested) (salary|compensation|pay)\b/,
+    /\b(salary|compensation|pay) (expectation|requirement|range)s?\b/,
+    /^salary$/,
+  ]],
+  ['noticePeriod', [/\bnotice period\b/, /\b(weeks?|days?|months?) (of )?notice\b/, /\bhow much notice\b/]],
+  ['gender', [/\bgender\b/, /\bsex\b/]],
+  ['race', [/\brace\b/, /\bethnicity\b/, /\bracial\b/, /\bethnic (background|origin|group)\b/]],
+  ['veteranStatus', [/\bveteran\b/, /\bmilitary (service|status)\b/]],
+  ['disabilityStatus', [/\bdisabilit(y|ies)\b/, /\bdisabled\b/]],
   ['addressLine1', [/\baddress line 1\b/, /\baddress 1\b/, /^(street )?address$/, /^street\b/]],
   // "unit"/"suite" only at the start or as "<word> number": "Business unit" isn't an address.
   ['addressLine2', [/\baddress line 2\b/, /\baddress 2\b/, /^(apt|apartment|suite|unit)\b/, /\b(apt|apartment|suite|unit) (number|no)\b/]],
@@ -49,7 +64,34 @@ export const NEGATIVE_CONTEXT =
  */
 export const KEY_EXCLUSIONS: Partial<Readonly<Record<ResolvableKey, RegExp>>> = {
   state: /\b(please|briefly|clearly|kindly) state\b|\bstate (your|why|how|what|whether|any|the reason)\b/,
+  // Polarity guard: "authorized to work" wants Yes, "require sponsorship" wants
+  // No. A question mixing both ("authorized to work… without sponsorship?") is
+  // ambiguous, so it resolves to neither.
+  workAuthorization: /\bsponsor/,
+  requiresSponsorship: /\b(authori[sz]ed|eligible|permitted) to work\b|\bwithout (the )?(need (for|of) )?(visa )?sponsor/,
+  // "Do you need relocation assistance?" is a different question from "willing to relocate?".
+  willingToRelocate: /\brelocation (assistance|package|support|benefits?|stipend|bonus|expenses?)\b|\b(assist|help|pay)\w* (with )?relocat/,
+  // Current pay is not desired pay (and some jurisdictions bar asking for it).
+  desiredSalary: /\b(current|previous|prior|last|present) (base )?(salary|compensation|pay)\b/,
+  // An interview-accommodation request isn't the self-identification question.
+  disabilityStatus: /\baccommodat/,
+  // Citizenship/nationality isn't the country you live in.
+  country: /\bcitizen|\bnationality\b|\bpassport\b/,
 };
+
+/**
+ * Keys whose patterns are specific enough to trust inside question prose
+ * ("Do you require sponsorship, or will you…"). Lever puts card questions in
+ * the field's surrounding text, not its label, so without this they'd never
+ * match. Other keys (and all EEO keys) only match short, label-like text.
+ */
+export const PROSE_KEYS: ReadonlySet<ResolvableKey> = new Set([
+  'workAuthorization',
+  'requiresSponsorship',
+  'willingToRelocate',
+  'desiredSalary',
+  'noticePeriod',
+]);
 
 /**
  * Browser-standard autocomplete field tokens → keys (Tier 1).
@@ -70,6 +112,7 @@ export const AUTOCOMPLETE_MAP: Readonly<Record<string, ResolvableKey>> = {
   country: 'country',
   'country-name': 'country',
   url: 'website',
+  sex: 'gender',
 };
 
 /**
@@ -97,4 +140,13 @@ export const FUZZY_SYNONYMS: ReadonlyArray<readonly [ResolvableKey, readonly str
   ['linkedin', ['linkedin', 'LinkedIn', 'linkedin profile', 'LinkedIn profile']],
   ['github', ['github', 'GitHub', 'github profile', 'GitHub profile']],
   ['website', ['personal website', 'portfolio', 'homepage', 'home page', 'personal site']],
+  ['workAuthorization', ['work authorization', 'authorized to work', 'eligible to work', 'right to work']],
+  ['requiresSponsorship', ['visa sponsorship', 'require sponsorship', 'sponsorship']],
+  ['willingToRelocate', ['willing to relocate', 'open to relocation', 'relocate']],
+  ['desiredSalary', ['desired salary', 'salary expectation', 'expected salary', 'desired compensation', 'compensation expectation']],
+  ['noticePeriod', ['notice period', 'notice required']],
+  ['gender', ['gender', 'gender identity', 'sex']],
+  ['race', ['race', 'ethnicity', 'race ethnicity', 'ethnic background']],
+  ['veteranStatus', ['veteran status', 'protected veteran', 'military status']],
+  ['disabilityStatus', ['disability status', 'disability']],
 ];

@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Eligibility &amp; EEO cases</title>
+    <style>
+      body { font: 15px/1.5 system-ui, sans-serif; max-width: 640px; margin: 32px auto; padding: 0 16px; }
+      .case { margin: 0 0 14px; }
+      label, .q { display: block; font-weight: 600; }
+      input, select { width: 100%; padding: 6px; font: inherit; box-sizing: border-box; }
+    </style>
+  </head>
+  <body>
+    <h1>Eligibility &amp; EEO cases</h1>
+    <p>
+      For the expected outcomes, save: Gender "Decline to self-identify", Race "Asian", Veteran "I am not a
+      protected veteran", authorized Yes, sponsorship No, relocate Yes, desired salary and notice period set.
+      Each control declares <code>data-expect-fill</code>.
+    </p>
+    <form>
+      <!-- Lever-style EEO select (same option text as Lever's standard survey) -->
+      <div class="case">
+        <label for="g">Gender</label>
+        <select id="g" name="eeo[gender]" data-expect-fill="filled">
+          <option value="">Select ...</option><option>Male</option><option>Female</option><option>Decline to self-identify</option>
+        </select>
+      </div>
+      <!-- Lever's "protected veteran" wording: matched through the synonym list -->
+      <div class="case">
+        <label for="v">Veteran status</label>
+        <select id="v" name="veteran" data-expect-fill="filled">
+          <option value="">Select…</option>
+          <option>I am not a protected veteran</option>
+          <option>I identify as one or more of the classifications of protected veteran listed above</option>
+          <option>I decline to self-identify for protected veteran status</option>
+        </select>
+      </div>
+      <!-- No option means "Asian": skipped, never guessed (diagnostics list the options) -->
+      <div class="case">
+        <label for="r">Race</label>
+        <select id="r" name="race_q" data-expect-fill="skipped: no option matched">
+          <option value="">Select…</option><option>Asian American</option><option>East Asian</option><option>South Asian</option>
+        </select>
+      </div>
+      <!-- Two options equal to the same answer: ambiguous, skipped -->
+      <div class="case">
+        <label for="g2">Gender identity</label>
+        <select id="g2" name="gender_q" data-expect-fill="skipped: multiple matches">
+          <option value="">Select…</option><option value="d1">Decline to self-identify</option><option value="d2">Decline to self-identify</option>
+        </select>
+      </div>
+      <!-- Lever card style: question only in surrounding text, plain Yes/No select -->
+      <div class="case">
+        <div class="q">Are you legally authorized to work in the country you're applying for?</div>
+        <select name="cards[a1][field0]" data-expect-fill="filled"><option value="">Select...</option><option>Yes</option><option>No</option></select>
+      </div>
+      <div class="case">
+        <div class="q">Sponsorship: Do you require sponsorship, or will you require sponsorship in the future for employment authorization in the United States?</div>
+        <select name="cards[a2][field0]" data-expect-fill="filled"><option value="">Select...</option><option>Yes</option><option>No</option></select>
+      </div>
+      <div class="case">
+        <div class="q">Would you be willing to relocate to another city for this role?</div>
+        <select name="cards[a3][field0]" data-expect-fill="filled"><option value="">Select...</option><option>Yes</option><option>No</option></select>
+      </div>
+      <div class="case"><label for="pay">Desired salary</label><input id="pay" name="pay" data-expect-fill="filled" /></div>
+      <div class="case"><label for="np">Notice period</label><input id="np" name="np" data-expect-fill="filled" /></div>
+
+      <!-- Safeguards: none of these may be filled -->
+      <div class="case">
+        <div class="q">Are you legally authorized to work in the US without the need for visa sponsorship?</div>
+        <select name="cards[b1][field0]" data-expect-fill="untouched"><option value="">Select...</option><option>Yes</option><option>No</option></select>
+      </div>
+      <div class="case">
+        <label for="ra">Will you require relocation assistance?</label>
+        <select id="ra" name="relo_help" data-expect-fill="untouched"><option value="">Select...</option><option>Yes</option><option>No</option></select>
+      </div>
+      <div class="case"><label for="cur">Current salary</label><input id="cur" name="current_pay" data-expect-fill="untouched" /></div>
+      <div class="case">
+        <label for="acc">Do you need an accommodation for a disability during interviews?</label>
+        <select id="acc" name="accommodation" data-expect-fill="untouched"><option value="">Select...</option><option>Yes</option><option>No</option></select>
+      </div>
+      <div class="case">
+        <label for="cit">Country of citizenship</label>
+        <select id="cit" name="citizenship" data-expect-fill="untouched"><option value="">Select...</option><option>Canada</option><option>United States</option></select>
+      </div>
+      <div class="case">
+        <p>We invite applicants to share their gender, race, veteran and disability status. This is voluntary.</p>
+        <select name="demographics_q" data-expect-fill="untouched"><option value="">Select...</option><option>Decline to self-identify</option></select>
+      </div>
+    </form>
+  </body>
+</html>

@@ -11,46 +11,8 @@ import { EMPTY_PROFILE, LIMITS } from '../shared/constants';
 import { sendToBackground } from '../shared/messaging';
 import { sanitizeProfile, validateProfile } from '../shared/profile-validation';
 import type { Profile, ProfileErrors, ProfileKey } from '../shared/types';
-
-interface FieldSpec {
-  key: ProfileKey;
-  label: string;
-  type?: 'email' | 'tel' | 'url';
-  autoComplete: string;
-  wide?: boolean;
-}
-
-// autoComplete lets Chrome's own autofill help fill in this form.
-const SECTIONS: Array<{ title: string; fields: FieldSpec[] }> = [
-  {
-    title: 'Personal',
-    fields: [
-      { key: 'firstName', label: 'First name', autoComplete: 'given-name' },
-      { key: 'lastName', label: 'Last name', autoComplete: 'family-name' },
-      { key: 'email', label: 'Email', type: 'email', autoComplete: 'email' },
-      { key: 'phone', label: 'Phone', type: 'tel', autoComplete: 'tel' },
-    ],
-  },
-  {
-    title: 'Address',
-    fields: [
-      { key: 'addressLine1', label: 'Address line 1', autoComplete: 'address-line1', wide: true },
-      { key: 'addressLine2', label: 'Address line 2', autoComplete: 'address-line2', wide: true },
-      { key: 'city', label: 'City', autoComplete: 'address-level2' },
-      { key: 'state', label: 'State / province', autoComplete: 'address-level1' },
-      { key: 'postalCode', label: 'Postal code', autoComplete: 'postal-code' },
-      { key: 'country', label: 'Country', autoComplete: 'country-name' },
-    ],
-  },
-  {
-    title: 'Links',
-    fields: [
-      { key: 'linkedin', label: 'LinkedIn', type: 'url', autoComplete: 'off', wide: true },
-      { key: 'github', label: 'GitHub', type: 'url', autoComplete: 'off', wide: true },
-      { key: 'website', label: 'Website / portfolio', type: 'url', autoComplete: 'url', wide: true },
-    ],
-  },
-];
+import { CHOICES } from '../shared/choices';
+import { SECTIONS, type FieldSpec } from './fields';
 
 type Status = { kind: 'loading' | 'idle' | 'saving' | 'saved' } | { kind: 'error'; message: string };
 
@@ -109,21 +71,17 @@ function OptionsApp() {
         {SECTIONS.map((section) => (
           <section key={section.title} aria-labelledby={`h-${section.title}`}>
             <h2 id={`h-${section.title}`}>{section.title}</h2>
+            {section.note && <p className="hint section-note">{section.note}</p>}
             <div className="grid">
               {section.fields.map((f) => (
                 <label key={f.key} className={f.wide ? 'wide' : undefined}>
                   {f.label}
-                  <input
-                    type={f.type ?? 'text'}
+                  <ProfileInput
+                    spec={f}
                     value={profile[f.key]}
-                    onChange={(e) => onChange(f.key, e.target.value)}
-                    autoComplete={f.autoComplete}
-                    maxLength={LIMITS.profileValueLength}
-                    spellCheck={f.type ? false : undefined}
-                    placeholder={f.type === 'url' ? 'https://' : undefined}
+                    onChange={(value) => onChange(f.key, value)}
                     disabled={status.kind === 'loading'}
-                    aria-invalid={errors[f.key] ? true : undefined}
-                    aria-describedby={errors[f.key] ? `err-${f.key}` : undefined}
+                    error={errors[f.key]}
                   />
                   {errors[f.key] && (
                     <span className="field-error" id={`err-${f.key}`}>
@@ -150,6 +108,43 @@ function OptionsApp() {
         </div>
       </form>
     </main>
+  );
+}
+
+function ProfileInput(props: {
+  spec: FieldSpec;
+  value: string;
+  onChange: (value: string) => void;
+  disabled: boolean;
+  error: string | undefined;
+}) {
+  const { spec, value, onChange, disabled, error } = props;
+  const a11y = { 'aria-invalid': error ? true : undefined, 'aria-describedby': error ? `err-${spec.key}` : undefined };
+
+  if (spec.kind === 'choice') {
+    return (
+      <select value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled} {...a11y}>
+        <option value="">Not set (leave for me)</option>
+        {(CHOICES[spec.key] ?? []).map((c) => (
+          <option key={c.code} value={c.code}>
+            {c.label}
+          </option>
+        ))}
+      </select>
+    );
+  }
+  return (
+    <input
+      type={spec.kind ?? 'text'}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      autoComplete={spec.autoComplete}
+      maxLength={LIMITS.profileValueLength}
+      spellCheck={spec.kind && spec.kind !== 'text' ? false : undefined}
+      placeholder={spec.placeholder}
+      disabled={disabled}
+      {...a11y}
+    />
   );
 }
 

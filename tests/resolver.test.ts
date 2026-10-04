@@ -129,7 +129,7 @@ describe('false-positive guards', () => {
     assert.equal(keyOf({ label: 'Which office in the United States?' }), 'unknown');
   });
   it('"state" used as a verb is not a state field, as a label or nearby text', () => {
-    assert.equal(keyOf({ label: 'Please state your salary expectations' }), 'unknown');
+    assert.equal(keyOf({ label: 'Please state your salary expectations' }), 'desiredSalary');
     assert.equal(keyOf({ label: 'State why you are interested' }), 'unknown');
     for (const label of ['State', 'State / Province', 'State of residence', 'State (US only)']) {
       assert.equal(keyOf({ label }), 'state', label);
@@ -142,7 +142,9 @@ describe('false-positive guards', () => {
     }
   });
   it('long nearby text is treated as a question, not a label', () => {
-    assert.equal(keyOf({ nearbyText: 'Please state your salary expectations for this role' }), 'unknown');
+    // Not `state`; it's a salary question, which is allowed to match prose.
+    assert.equal(keyOf({ nearbyText: 'Please state your salary expectations for this role' }), 'desiredSalary');
+    assert.equal(keyOf({ nearbyText: 'Please state the city you would like to work in for this role' }), 'unknown');
   });
   it('someone else’s details are not the applicant’s', () => {
     assert.equal(keyOf({ label: 'Referrer email' }), 'unknown');

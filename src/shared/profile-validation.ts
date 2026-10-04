@@ -1,3 +1,4 @@
+import { CHOICES, choiceFor, codeForLegacyValue, isChoiceKey } from './choices';
 import { EMPTY_PROFILE, LIMITS, PROFILE_KEYS, URL_KEYS } from './constants';
 import type { Profile, ProfileErrors } from './types';
 
@@ -26,6 +27,8 @@ export function sanitizeProfile(input: unknown): Profile {
 
     let value = raw.normalize('NFC').replace(UNSAFE_CHARS, ' ').trim().slice(0, LIMITS.profileValueLength);
     if (URL_KEYS.has(key)) value = withDefaultScheme(value);
+    // Earlier versions saved the option text itself; map it to its choice code.
+    if (value && isChoiceKey(key) && !choiceFor(key, value)) value = codeForLegacyValue(key, value) ?? value;
     profile[key] = value;
   }
   return profile;
@@ -43,6 +46,9 @@ export function validateProfile(p: Profile): ProfileErrors {
   }
   for (const key of URL_KEYS) {
     if (p[key] && !isHttpUrl(p[key])) errors[key] = 'Enter a web address starting with https://';
+  }
+  for (const key of Object.keys(CHOICES) as Array<keyof typeof CHOICES>) {
+    if (p[key] && !choiceFor(key, p[key])) errors[key] = 'Choose one of the options, or leave it blank.';
   }
   return errors;
 }

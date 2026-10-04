@@ -98,3 +98,5 @@ button:disabled { opacity: 0.6; cursor: default; }
 }
 
 fieldset .hint { margin: 8px 0 14px; }
+
+.section-note { margin: -6px 0 14px; }

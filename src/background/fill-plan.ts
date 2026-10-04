@@ -1,4 +1,5 @@
-import { REVIEW_THRESHOLD } from '../shared/constants';
+import { choiceFor } from '../shared/choices';
+import { ALWAYS_REVIEW_KEYS, REVIEW_THRESHOLD } from '../shared/constants';
 import type { FieldCandidate, FillPlan, Profile, ResolvableKey } from '../shared/types';
 import { resolveFields } from './resolver/field-resolver';
 
@@ -15,17 +16,22 @@ export function buildFillPlan(fields: readonly FieldCandidate[], profile: Profil
   for (const r of resolutions) {
     const field = byId.get(r.fieldId);
     if (r.key === 'unknown' || !field) continue;
-    const value = profileValue(r.key, profile);
-    if (!value) continue; // nothing saved for this key: send nothing
+    const saved = profileValue(r.key, profile);
+    if (!saved) continue; // nothing saved for this key: send nothing
 
+    // A choice code becomes its label (for text boxes) plus the option texts
+    // that mean it (for dropdowns, whose wording varies by form).
+    const choice = choiceFor(r.key, saved);
     instructions.push({
       fieldId: r.fieldId,
       key: r.key,
       selector: field.selector,
-      value,
+      value: choice ? choice.label : saved,
+      ...(choice ? { optionCandidates: choice.synonyms } : {}),
       confidence: r.confidence,
       source: r.source,
-      requiresReview: r.confidence < REVIEW_THRESHOLD,
+      // Sensitive answers (EEO, work eligibility, salary) always get a human look.
+      requiresReview: r.confidence < REVIEW_THRESHOLD || (ALWAYS_REVIEW_KEYS as ReadonlySet<string>).has(r.key),
     });
   }
   return { resolutions, instructions };

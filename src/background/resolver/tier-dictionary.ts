@@ -1,6 +1,6 @@
 import { CONFIDENCE } from '../../shared/constants';
-import type { FieldCandidate, Profile, ResolvedField } from '../../shared/types';
-import { FIELD_PATTERNS, KEY_EXCLUSIONS, NEGATIVE_CONTEXT } from './dictionary';
+import type { FieldCandidate, Profile, ResolvableKey, ResolvedField } from '../../shared/types';
+import { FIELD_PATTERNS, KEY_EXCLUSIONS, NEGATIVE_CONTEXT, PROSE_KEYS } from './dictionary';
 import { canResolve, isCompatible } from './field-rules';
 
 /**
@@ -17,7 +17,8 @@ type Source = readonly [what: string, text: string, confidence: number];
 /**
  * Weak text longer than this reads as a question or instructions, not a
  * field label: "Please state your salary expectations" should not match
- * `state`. Short text ("City", "e.g. Toronto") still counts.
+ * `state`. Short text ("City", "e.g. Toronto") still counts, and so does a
+ * question for keys whose patterns are built for prose (PROSE_KEYS).
  */
 const MAX_WEAK_TEXT_LENGTH = 40;
 
@@ -32,20 +33,32 @@ export function tierDictionary(field: FieldCandidate, profile: Profile): Resolve
 
   for (const [what, raw, confidence] of sources) {
     const text = normalizeForMatching(raw);
-    if (!text || NEGATIVE_CONTEXT.test(text)) continue;
-    if (confidence < CONFIDENCE.dictionaryStrong && text.length > MAX_WEAK_TEXT_LENGTH) continue;
+    if (!text) continue;
+    // "Referrer email", "Company website": about someone else. Question keys are
+    // exempt: their questions naturally mention an employer ("notice to your
+    // current employer"), and they carry their own exclusions (KEY_EXCLUSIONS).
+    const aboutSomeoneElse = NEGATIVE_CONTEXT.test(text);
+    // Long weak text is question prose: only PROSE_KEYS may match it.
+    const prose = confidence < CONFIDENCE.dictionaryStrong && text.length > MAX_WEAK_TEXT_LENGTH;
 
+    const matches: Array<{ key: ResolvableKey; pattern: RegExp }> = [];
     for (const [key, patterns] of FIELD_PATTERNS) {
+      if ((prose || aboutSomeoneElse) && !PROSE_KEYS.has(key)) continue;
       const pattern = patterns.find((p) => p.test(text));
       if (!pattern || KEY_EXCLUSIONS[key]?.test(text) || !isCompatible(field, key) || !canResolve(profile, key)) continue;
-      return {
-        fieldId: field.id,
-        key,
-        confidence,
-        source: 'dictionary',
-        evidence: `${what} "${raw.slice(0, 60)}" matched ${String(pattern)}`,
-      };
+      matches.push({ key, pattern });
+      if (!prose) break; // label-like text: first (most specific) key wins
     }
+    // Prose that fits two question keys ("relocate… and sponsorship?") is ambiguous.
+    const match = matches.length === 1 ? matches[0] : undefined;
+    if (!match) continue;
+    return {
+      fieldId: field.id,
+      key: match.key,
+      confidence,
+      source: 'dictionary',
+      evidence: `${what} "${raw.slice(0, 60)}" matched ${String(match.pattern)}`,
+    };
   }
   return null;
 }

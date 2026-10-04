@@ -16,7 +16,18 @@ A Chrome extension that fills in the repetitive parts of job applications (name,
 3. **It fills the matched fields** that are empty and visible, in a way that works with React and other modern web frameworks.
 4. **A small panel lists everything it filled,** with confidence scores. Low-confidence fills are highlighted in yellow for you to double-check, and **Undo** reverts them.
 
-Profile fields: first and last name, email, phone, address (two lines, city, state, postal code, country), LinkedIn, GitHub, and website.
+Profile fields:
+- **Personal and address:** first and last name, email, phone, address (two lines, city, state, postal code, country).
+- **Links:** LinkedIn, GitHub, website.
+- **Job preferences:** desired salary, notice period.
+- **Work eligibility (Yes/No):** authorized to work, needs sponsorship, willing to relocate.
+- **Optional voluntary self-identification (EEO):** gender, race/ethnicity, veteran status, disability status.
+
+Eligibility and EEO answers are picked from fixed choices on the options page. Forms word the dropdown options differently ("I am not a veteran" vs "I am not a protected veteran"), so each answer is matched against a list of known wordings:
+- the comparison ignores case, spacing and punctuation, but must match the **whole** option text, so "Male" never selects "Female";
+- if no option fits, or two options fit equally, the dropdown is skipped rather than guessed.
+
+**EEO, eligibility, and salary answers are always flagged for review,** so you see them before submitting.
 
 ## What it doesn't do (yet)
 
@@ -70,7 +81,9 @@ Each field goes through three matching tiers in order, and the first match wins:
 - **Flagged for review:** anything below 0.8. That covers every Tier 3 match, which is why fuzzy fills always show in yellow.
 - **Left for you:** anything that matches no tier.
 - **Type rules:** a field's type limits what it can match. An email box can only get your email, and a dropdown only a country or state.
-- **Guarded against false positives:** "Referrer email", "Company website" and "Please *state* your salary…" all stay unmatched.
+- **Guarded against false positives:** "Referrer email" and "Company website" stay unmatched, and "Please *state* your salary…" is a salary question, not a state field.
+- **Guarded against flipped answers:** "Authorized to work?" wants Yes and "Require sponsorship?" wants No. A question mixing the two ("authorized to work *without* sponsorship?") is left for you, and so are "relocation *assistance*" and "*current* salary" questions.
+- **Question text counts for question keys only.** Sponsorship, authorization, relocation, salary and notice-period questions can match from the question text around a field, as on Lever's custom question cards, at review-level confidence. EEO answers only match a field's own label or name.
 
 ## Privacy and security
 
@@ -94,14 +107,18 @@ npm run build      # typecheck + tests + production build (debug logging compile
 **Debug output:** with a dev build, open the page's DevTools console before clicking **Fill this page**. You'll see tables of:
 - detected fields, and skipped controls with the reason each was skipped;
 - how each field was matched, with `evidence` explaining why, e.g. `label "Email ✱" matched /\be ?mail\b/`;
-- fill results. Filled values are never logged, even in dev builds.
+- fill results;
+- one row per dropdown, with its key, the option chosen (or why none was), and the options available.
+
+Text-field values are never logged. Dev builds do log which dropdown option was chosen, to make matching problems diagnosable. Production builds log nothing.
 
 **Test pages:** `python3 -m http.server 8000 --directory test-page`, then open:
 - `index.html`: a sample application;
 - `scanner-cases.html`: scanner edge cases;
-- `filler-cases.html`: fill and safety cases.
+- `filler-cases.html`: fill and safety cases;
+- `eeo-cases.html`: eligibility, salary, EEO and dropdown-matching cases.
 
-Every control on the two case pages declares its expected result.
+Every control on the case pages declares its expected result.
 
 **Layout:**
 
@@ -114,6 +131,10 @@ src/shared/       types, constants, validation
 tests/            unit tests
 test-page/        fixture pages for manual checks
 ```
+
+## Roadmap
+
+See [ROADMAP.md](ROADMAP.md): iframe-embedded forms (iCIMS, embedded Greenhouse), radio buttons, custom widgets, and more.
 
 ## Contributing
 

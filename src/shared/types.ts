@@ -16,6 +16,19 @@ export interface Profile {
   linkedin: string;
   github: string;
   website: string;
+  // Job preferences (free text).
+  desiredSalary: string;
+  noticePeriod: string;
+  // Multiple-choice answers, stored as a choice code from shared/choices.ts
+  // ('' = not set). Work eligibility codes are 'Yes' / 'No'.
+  workAuthorization: string;
+  requiresSponsorship: string;
+  willingToRelocate: string;
+  // Voluntary self-identification (EEO): optional, always flagged for review.
+  gender: string;
+  race: string;
+  veteranStatus: string;
+  disabilityStatus: string;
   // Extendable: add the key here and to PROFILE_KEYS in constants.ts.
   // The resolver treats missing/empty keys as "no match".
 }
@@ -73,9 +86,14 @@ export interface FillInstruction {
   key: ResolvableKey;
   selector: string;
   value: string;
+  /**
+   * Dropdowns only: option texts that mean this answer, in priority order (see
+   * shared/choices.ts). Absent means "match `value` itself".
+   */
+  optionCandidates?: readonly string[];
   confidence: number;
   source: ResolverSource;
-  /** True when confidence is below REVIEW_THRESHOLD. */
+  /** True when confidence is below REVIEW_THRESHOLD (or the key is always reviewed). */
   requiresReview: boolean;
 }
 
@@ -90,7 +108,7 @@ export interface FillPlan {
   instructions: FillInstruction[];
 }
 
-/** Outcome of applying one FillInstruction in the page. Never includes the filled value. */
+/** Outcome of applying one FillInstruction in the page. Never includes a filled text value. */
 export interface FillResult {
   fieldId: string;
   key: ResolvableKey;
@@ -103,6 +121,8 @@ export interface FillResult {
   requiresReview: boolean;
   /** What the field held before filling, so the overlay's Undo (step 9) can restore it. */
   previousValue: string;
+  /** Dropdowns only, for diagnostics: the chosen option's text (null if none) and the available options. */
+  select?: { matched: string | null; options: string[] };
 }
 
 /** What the content script reports back to the popup: counts only, never values. */

@@ -77,8 +77,8 @@ describe('Tier 3: stays unknown when it should', () => {
     assert.equal(resolve({ label: 'Referrer email' }).key, 'unknown');
     assert.equal(resolve({ label: 'Company website' }).key, 'unknown');
   });
-  it('long question text does not match "state"', () => {
-    assert.equal(resolve({ label: 'Please state your salary expectations' }).key, 'unknown');
+  it('long question text does not match "state" (it’s a salary question)', () => {
+    assert.equal(resolve({ label: 'Please state your salary expectations' }).key, 'desiredSalary');
   });
   it('"Excellent communication skills?" matches nothing (no "cell" substring matching)', () => {
     assert.equal(resolve({ label: 'Excellent communication skills?' }).key, 'unknown');

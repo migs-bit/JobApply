@@ -1,4 +1,5 @@
 import type { FillInstruction, FillResult } from '../../shared/types';
+import { matchOption, optionTexts } from './option-match';
 
 /**
  * Writes profile values into the page.
@@ -50,6 +51,8 @@ export function applyFill(instructions: readonly FillInstruction[], doc: Documen
 
 function fillOne(instruction: FillInstruction, doc: Document): FillResult {
   const { fieldId, key, selector, confidence, source, requiresReview } = instruction;
+  // Dropdown diagnostics, attached to every result once we know the element is a <select>.
+  let select: FillResult['select'];
   const result = (status: FillResult['status'], previousValue: string, reason?: string): FillResult => ({
     fieldId,
     key,
@@ -60,9 +63,11 @@ function fillOne(instruction: FillInstruction, doc: Document): FillResult {
     source,
     requiresReview,
     previousValue,
+    ...(select ? { select } : {}),
   });
 
   const el = querySafely(doc, selector);
+  if (el instanceof HTMLSelectElement) select = { matched: null, options: optionTexts(Array.from(el.options)) };
   if (!el) return result('skipped', '', 'element not found');
   if (!isFillable(el)) return result('skipped', '', 'element is not a fillable text field');
   if (el.matches(':disabled') || (!(el instanceof HTMLSelectElement) && el.readOnly)) {
@@ -78,9 +83,11 @@ function fillOne(instruction: FillInstruction, doc: Document): FillResult {
 
   let value = instruction.value;
   if (el instanceof HTMLSelectElement) {
-    const option = matchOption(el, value);
-    if (!option) return result('skipped', previousValue, 'no matching option');
-    value = option.value;
+    const options = Array.from(el.options);
+    const match = matchOption(options, instruction.optionCandidates ?? [instruction.value]);
+    if ('reason' in match) return result('skipped', previousValue, match.reason);
+    if (select) select.matched = match.matched;
+    value = options[match.index]?.value ?? '';
   } else if (el.maxLength >= 0 && value.length > el.maxLength) {
     // Truncating would silently submit wrong data (a cut-off email, a partial URL).
     return result('skipped', previousValue, 'value longer than the field allows');
@@ -168,14 +175,4 @@ function clipsToNothing(style: CSSStyleDeclaration): boolean {
   }
   const inset = /^inset\(\s*([\d.]+)%/.exec(style.clipPath);
   return inset !== null && Number(inset[1]) >= 50;
-}
-
-/** Exact match on option value or visible text, ignoring case/whitespace. No guessing. */
-function matchOption(select: HTMLSelectElement, wanted: string): HTMLOptionElement | null {
-  const target = wanted.trim().toLowerCase();
-  for (const option of select.options) {
-    if (option.disabled) continue;
-    if (option.value.trim().toLowerCase() === target || option.text.trim().toLowerCase() === target) return option;
-  }
-  return null;
 }

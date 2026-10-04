@@ -24,8 +24,21 @@ const COMPATIBLE_KEYS: Readonly<Record<string, ReadonlySet<ResolvableKey> | null
   email: new Set(['email']),
   tel: new Set(['phone']),
   url: URL_KEYS as ReadonlySet<ResolvableKey>,
-  // Dropdowns in job forms that hold profile data are country/state pickers.
-  select: new Set(['country', 'state']),
+  // Dropdowns that hold profile data: location pickers, Yes/No eligibility
+  // questions, EEO self-identification, and preference pickers.
+  select: new Set([
+    'country',
+    'state',
+    'workAuthorization',
+    'requiresSponsorship',
+    'willingToRelocate',
+    'desiredSalary',
+    'noticePeriod',
+    'gender',
+    'race',
+    'veteranStatus',
+    'disabilityStatus',
+  ]),
   // A multi-line box is only ever a profile field when it's a street address.
   textarea: new Set(['addressLine1']),
   text: null,
