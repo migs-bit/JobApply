@@ -6,6 +6,13 @@ All notable changes. The format follows [Keep a Changelog](https://keepachangelo
 
 ### Added
 
+- **Radio button support.**
+  - **One question per group:** radios sharing a name are one question, matched on the group's question text (a fieldset legend, a radiogroup label, or the text around it), never on a lone "Yes"/"No".
+  - **Which questions:** only work-eligibility and EEO keys can be answered by a radio group.
+  - **Real click:** the matching radio is clicked, then re-checked after 100 ms; a page that refuses the click is reported as "page reverted". Groups that already have an answer are never changed.
+  - **Hidden radios:** a radio counts as visible if the radio *or* its label is, as with custom-styled radios. Fully hidden groups are never touched.
+  - **Diagnostics:** one dev-build row per radio group, with the chosen option and the options on offer.
+
 - **New profile fields:** desired salary, notice period, work authorization, visa sponsorship, willingness to relocate, and optional voluntary self-identification (gender, race/ethnicity, veteran status, disability status).
 - **Native dropdown filling** for these fields, including Lever's EEO section and Yes/No question cards.
 - **Dropdown synonym matching:** each answer is matched against the wordings forms commonly use ("I am not a veteran", "I am not a protected veteran", …).
@@ -17,6 +24,10 @@ All notable changes. The format follows [Keep a Changelog](https://keepachangelo
 - **Build:** `scripts/build.mjs --out=<dir>`, which builds somewhere other than `dist/`.
 
 ### Changed
+
+- **Undo for radio answers:** the answer stays in place and the panel says to change it on the page. A programmatic clear would leave React-style forms submitting the old answer while the page shows none. When a radio was selected before, Undo clicks it again.
+- **The overlay shows the option actually chosen** for dropdowns and radios ("I am not a veteran"), not the generic answer label.
+- **Field names in diagnostics and the overlay:** fields without a label (Lever card questions) are named by their question text, and diagnostics rows include the field's `name`.
 
 - **Always flagged for review:** EEO, work-eligibility, relocation and salary answers, whatever the match confidence.
 - **Question text can match for question-style keys only** (sponsorship, authorization, relocation, salary, notice period), at review-level confidence. This covers Lever's card questions. EEO keys still match labels and names only.

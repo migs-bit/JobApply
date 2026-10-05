@@ -1,4 +1,5 @@
 import type { ResolvableKey, ResolverSource } from '../../shared/types';
+import type { UndoOutcome } from '../filler/dom-filler';
 import { OVERLAY_CSS, REVIEW_OUTLINE } from './overlay-styles';
 
 /**
@@ -29,8 +30,8 @@ export interface OverlayRow {
 export interface OverlayOptions {
   rows: OverlayRow[];
   skipped: number;
-  /** Restores filled fields; returns how many were restored. */
-  onUndo: () => number;
+  /** Restores filled fields; reports how many were restored and which radio answers must be changed by hand. */
+  onUndo: () => UndoOutcome;
 }
 
 const AUTO_DISMISS_MS = 6000;
@@ -67,7 +68,8 @@ export function showOverlay({ rows, skipped, onUndo }: OverlayOptions): void {
   // What needs attention first: failures, then low-confidence fills, then the rest (stable within each group).
   const rank = (r: OverlayRow) => (r.status === 'failed' ? 0 : r.requiresReview ? 1 : 2);
   const list = el('ul');
-  const items = [...rows].sort((a, b) => rank(a) - rank(b)).map((row) => renderRow(row));
+  const sorted = [...rows].sort((a, b) => rank(a) - rank(b));
+  const items = sorted.map((row) => renderRow(row));
   list.append(...items);
 
   const undo = el('button', 'action', 'Undo');
@@ -114,10 +116,17 @@ export function showOverlay({ rows, skipped, onUndo }: OverlayOptions): void {
   undo.addEventListener('click', () => {
     autoDismiss = false; // after an undo, the user closes the panel
     stopTimer();
-    const restored = onUndo();
+    const { restored, manual } = onUndo();
     clearOutlines();
-    items.forEach((item) => item.classList.add('undone'));
-    summary.textContent = `Restored ${restored} field${restored === 1 ? '' : 's'}.`;
+    // Rows that were undone are dimmed; radio answers that stayed keep their normal look.
+    items.forEach((item, i) => {
+      if (!manual.includes(sorted[i]?.selector ?? '')) item.classList.add('undone');
+    });
+    summary.textContent =
+      `Restored ${restored} field${restored === 1 ? '' : 's'}.` +
+      (manual.length
+        ? ` ${manual.length} radio answer${manual.length === 1 ? '' : 's'} can't be cleared automatically: change ${manual.length === 1 ? 'it' : 'them'} on the page.`
+        : '');
     undo.hidden = true;
     close.focus();
   });

@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Radio group cases</title>
+    <style>
+      body { font: 15px/1.5 system-ui, sans-serif; max-width: 680px; margin: 32px auto; padding: 0 16px; }
+      .case, fieldset { margin: 0 0 16px; }
+      .q, legend { font-weight: 600; }
+      ul { list-style: none; padding: 0; margin: 4px 0; }
+      /* Custom-styled radios: native dot hidden, label shown (Ashby-style). */
+      .pill input { opacity: 0; position: absolute; width: 1px; height: 1px; }
+      .pill label { display: inline-block; padding: 4px 10px; margin: 0 6px 6px 0; border: 1px solid #999; border-radius: 999px; }
+    </style>
+  </head>
+  <body>
+    <h1>Radio group cases</h1>
+    <p>
+      Save: authorized Yes, sponsorship No, relocate Yes, gender Female, race Asian, veteran "I am not a protected
+      veteran", disability "Decline to self-identify". Each group's first radio declares
+      <code>data-expect-fill</code> (<code>filled</code>, <code>skipped: &lt;reason&gt;</code>, or <code>untouched</code>)
+      and, when filled, <code>data-expect-choice</code>.
+    </p>
+    <form>
+      <!-- Fieldset legend as the question -->
+      <fieldset>
+        <legend>Are you legally authorized to work in the United States?</legend>
+        <label><input type="radio" name="auth" value="yes" data-expect-fill="filled" data-expect-choice="Yes" /> Yes</label>
+        <label><input type="radio" name="auth" value="no" /> No</label>
+      </fieldset>
+
+      <!-- Lever card style: question only in the surrounding text -->
+      <div class="case">
+        <div class="q">Will you now or will you in the future require employment visa sponsorship?</div>
+        <ul>
+          <li><label><input type="radio" name="cards[s][field0]" value="Yes" data-expect-fill="filled" data-expect-choice="No" /> Yes</label></li>
+          <li><label><input type="radio" name="cards[s][field0]" value="No" /> No</label></li>
+        </ul>
+      </div>
+
+      <!-- role="radiogroup" + aria-labelledby; native dots hidden, labels visible -->
+      <div class="case">
+        <div class="q" id="gender-q">What gender do you identify as?</div>
+        <div class="pill" role="radiogroup" aria-labelledby="gender-q">
+          <input type="radio" id="g-f" name="gender_q" value="f" data-expect-fill="filled" data-expect-choice="Female" /><label for="g-f">Female</label>
+          <input type="radio" id="g-m" name="gender_q" value="m" /><label for="g-m">Male</label>
+          <input type="radio" id="g-n" name="gender_q" value="nb" /><label for="g-n">Non-binary</label>
+        </div>
+      </div>
+
+      <fieldset>
+        <legend>Race</legend>
+        <label><input type="radio" name="race_q" value="1" data-expect-fill="filled" data-expect-choice="Asian (Not Hispanic or Latino)" /> Hispanic or Latino</label>
+        <label><input type="radio" name="race_q" value="2" /> White (Not Hispanic or Latino)</label>
+        <label><input type="radio" name="race_q" value="3" /> Asian (Not Hispanic or Latino)</label>
+        <label><input type="radio" name="race_q" value="4" /> Decline to self-identify</label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Veteran status</legend>
+        <label><input type="radio" name="vet_q" value="p" data-expect-fill="filled" data-expect-choice="I am not a protected veteran" /> I identify as one or more of the classifications of protected veteran listed above</label>
+        <label><input type="radio" name="vet_q" value="n" /> I am not a protected veteran</label>
+        <label><input type="radio" name="vet_q" value="d" /> I decline to self-identify for protected veteran status</label>
+      </fieldset>
+
+      <!-- Skips -->
+      <fieldset>
+        <legend>Disability status</legend>
+        <label><input type="radio" name="dis_q" value="y" data-expect-fill="skipped: no option matched" /> Yes, I have a disability</label>
+        <label><input type="radio" name="dis_q" value="n" /> No, I do not have a disability</label>
+      </fieldset>
+      <fieldset>
+        <legend>Are you willing to relocate?</legend>
+        <label><input type="radio" name="relo_q" value="a" data-expect-fill="skipped: multiple matches" /> Yes</label>
+        <label><input type="radio" name="relo_q" value="b" /> yes</label>
+        <label><input type="radio" name="relo_q" value="c" /> No</label>
+      </fieldset>
+      <fieldset>
+        <legend>Are you eligible to work in Canada?</legend>
+        <label><input type="radio" name="ca_q" value="y" data-expect-fill="skipped: already has a value" /> Yes</label>
+        <label><input type="radio" name="ca_q" value="n" checked /> No</label>
+      </fieldset>
+      <div class="case" style="opacity: 0">
+        <div class="q">Do you require visa sponsorship?</div>
+        <label><input type="radio" name="hidden_q" value="y" data-expect-fill="skipped: not visible" /> Yes</label>
+        <label><input type="radio" name="hidden_q" value="n" /> No</label>
+      </div>
+
+      <!-- Must never be touched -->
+      <div class="case">
+        <div class="q">Have you built a pipeline that called a paid API at scale with a budget you were accountable for?</div>
+        <label><input type="radio" name="custom_q" value="Yes" data-expect-fill="untouched" /> Yes</label>
+        <label><input type="radio" name="custom_q" value="No" /> No</label>
+      </div>
+      <fieldset>
+        <legend>Will you require relocation assistance?</legend>
+        <label><input type="radio" name="relo_help" value="y" data-expect-fill="untouched" /> Yes</label>
+        <label><input type="radio" name="relo_help" value="n" /> No</label>
+      </fieldset>
+      <fieldset>
+        <legend>Languages (check all that apply)</legend>
+        <label><input type="checkbox" name="langs" value="en" data-expect-fill="untouched" /> English</label>
+        <label><input type="checkbox" name="langs" value="es" /> Spanish</label>
+      </fieldset>
+    </form>
+  </body>
+</html>

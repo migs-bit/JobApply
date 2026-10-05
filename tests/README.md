@@ -37,6 +37,7 @@ npm run test:e2e:live                # also check live Lever/Ashby/Replit postin
 | `fill` | Every outcome in `filler-cases.html`, including hidden-field phishing variants. React state updated. Lever-style fields. The filler's guards called directly. No values in logs. |
 | `popup` | Permissions and install warnings (none). The real popup opened over a tab: inject once, fill, close itself when the overlay shows, explain why when nothing was filled. |
 | `overlay` | Closed shadow root, rows and review highlighting, Undo (keeps user edits, resets React state), Close and Esc, auto-dismiss. A strict page CSP plus hostile page CSS. |
+| `radio` | Every group outcome in `radio-cases.html`: fills, ambiguous, no-match, preselected and hidden skips, untouched custom questions. React radios: the click updates state; a refused click reports "page reverted". Undo keeps the page and React state consistent. Review highlighting. With `--live`, a real Lever form's radio questions and EEO dropdowns. |
 | `profile-keys` | Choice dropdowns on the options page. Every outcome in `eeo-cases.html`. Synonym matching. Per-`<select>` diagnostics. The Lever-style EEO section. With `--live`, a real Lever EEO form. |
 
 **Live mode:** live postings change or close. The live checks look postings up through public job-board APIs where possible, and skip with a note if a page no longer has what they test.
@@ -47,9 +48,9 @@ npm run test:e2e:live                # also check live Lever/Ashby/Replit postin
 
 - `test-page/`: pages served to the browser suites, also usable by hand (`python3 -m http.server 8000 --directory test-page`).
   - `index.html`: a sample application.
-  - `scanner-cases.html`, `filler-cases.html`, `eeo-cases.html`: each control declares its expected result in `data-expect-*` attributes.
+  - `scanner-cases.html`, `filler-cases.html`, `eeo-cases.html`, `radio-cases.html`: each control (or a radio group's first radio) declares its expected result in `data-expect-*` attributes.
   - `lever-like.html`: Lever's markup structure, with content written for this project. Used instead of saved copies of real postings.
-- `tests/e2e/fixtures/`: small sources bundled at test time: a React form, and an entry that exposes the filler for direct guard tests.
+- `tests/e2e/fixtures/`: small sources bundled at test time: a React form, React radio groups, and an entry that exposes the filler for direct guard tests.
 
 ## Adding a suite
 

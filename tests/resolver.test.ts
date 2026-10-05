@@ -154,11 +154,11 @@ describe('false-positive guards', () => {
 });
 
 describe('field scope and type compatibility', () => {
-  it('never resolves password, checkbox, radio, or file inputs', () => {
-    for (const type of ['password', 'checkbox', 'radio', 'file', 'date', 'number']) {
+  it('never resolves password, checkbox, or file inputs', () => {
+    for (const type of ['password', 'checkbox', 'file', 'date', 'number']) {
       const r = resolve({ type, label: 'Email' });
       assert.deepEqual([r.key, r.source], ['unknown', 'none'], type);
-      assert.match(r.evidence, /not filled by the MVP/);
+      assert.match(r.evidence, /is not filled/);
     }
   });
   it('an input type restricts which keys can match', () => {

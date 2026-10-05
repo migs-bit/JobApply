@@ -77,6 +77,8 @@ export const LIMITS = {
   fieldTextLength: 300,
   /** Max characters of surrounding text captured per field by the scanner. */
   nearbyTextLength: 200,
+  /** Max radio options reported per radio group. */
+  optionsPerField: 50,
 } as const;
 
 /** Confidence assigned by each resolver tier (see Brief.md). */

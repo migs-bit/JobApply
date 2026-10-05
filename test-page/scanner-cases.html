@@ -15,7 +15,8 @@
     <p>
       Expected scanner results are declared on each control: <code>data-expect-skip</code>,
       <code>data-expect-label</code>, <code>data-expect-nearby</code> (substring),
-      <code>data-expect-type</code>, or <code>data-expect-absent</code> (must not be scanned at all).
+      <code>data-expect-type</code>, <code>data-expect-options</code> (radio groups), <code>data-expect-grouped</code>
+      (a later radio of a group: reported through the group, not on its own), or <code>data-expect-absent</code>.
     </p>
 
     <form>
@@ -47,8 +48,9 @@
       <div class="case"><span>City</span> <input name="city" value="PREFILLED-SECRET-VALUE" data-expect-nearby="City" /></div>
       <fieldset class="case">
         <legend>Are you legally authorized to work here?</legend>
-        <label><input type="radio" name="auth" value="y" data-expect-label="Yes" data-expect-nearby="legally authorized" /> Yes</label>
-        <label><input type="radio" name="auth" value="n" data-expect-label="No" data-expect-nearby="legally authorized" /> No</label>
+        <!-- One field per radio group: the legend is the question, each radio's label is an option. -->
+        <label><input type="radio" name="auth" value="y" data-expect-label="Are you legally authorized to work here?" data-expect-options="Yes|No" data-expect-nearby="legally authorized" /> Yes</label>
+        <label><input type="radio" name="auth" value="n" data-expect-grouped /> No</label>
       </fieldset>
       <div class="case">
         <span>Two fields, one box</span>

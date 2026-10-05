@@ -47,6 +47,9 @@ export async function run({ devDist, live }) {
     suite.check('Twitter URL and current company stay unknown', l.key('urls[Twitter]') === 'unknown' && l.key('org') === 'unknown');
     suite.check('Lever-style cards: sponsorship select and EEO selects resolve; custom questions stay unknown',
       l.key('cards[c1][field3]') === 'requiresSponsorship' && l.key('eeo[gender]') === 'gender' && l.key('eeo[race]') === 'race' && l.key('eeo[veteran]') === 'veteranStatus' && l.key('cards[c1][field4]') === 'unknown');
+    const radioCards = l.fields.filter((f) => f.type === 'radio');
+    suite.check('Lever-style radio card: one field per group, resolved from its question (not its "Yes"/"No" labels)',
+      radioCards.length === 1 && radioCards[0].options?.join('|') === 'Yes|No' && l.key('cards[c1][field2]') === 'workAuthorization');
     const cards = l.fields.filter((f) => f.name.startsWith('cards[') && ['checkbox', 'radio', 'file'].includes(f.type));
     suite.check('card controls get the question as nearby text (not option labels / "Upload file")',
       cards.length > 0 && cards.every((f) => f.nearbyText && !/^(upload file|attach)/i.test(f.nearbyText) && !(f.label && f.nearbyText.startsWith(f.label))));

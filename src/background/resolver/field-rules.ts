@@ -7,14 +7,18 @@ import type { FieldCandidate, Profile, ResolvableKey } from '../../shared/types'
  * an `type="email"` input or a profile value into a password box.
  */
 
-/** Text-like input types the MVP fills. Everything else resolves to "unknown". */
-const FILLABLE_INPUT_TYPES = new Set(['text', 'email', 'tel', 'url', 'search']);
+/**
+ * Input types that can be filled. "radio" means a whole radio group (the
+ * scanner reports one field per group). Everything else, including
+ * checkbox, file and password, resolves to "unknown".
+ */
+const FILLABLE_INPUT_TYPES = new Set(['text', 'email', 'tel', 'url', 'search', 'radio']);
 
 /** Returns why a field is out of scope for filling, or null if it's in scope. */
 export function unfillableReason(field: FieldCandidate): string | null {
   if (field.tag === 'input' && !FILLABLE_INPUT_TYPES.has(field.type)) {
     // Includes password: profile data must never be typed into a password field.
-    return `type="${field.type}" is not filled by the MVP`;
+    return `type="${field.type}" is not filled`;
   }
   return null;
 }
@@ -41,6 +45,16 @@ const COMPATIBLE_KEYS: Readonly<Record<string, ReadonlySet<ResolvableKey> | null
   ]),
   // A multi-line box is only ever a profile field when it's a street address.
   textarea: new Set(['addressLine1']),
+  // Radio groups hold one choice among page-defined options: only multiple-choice keys make sense.
+  radio: new Set([
+    'workAuthorization',
+    'requiresSponsorship',
+    'willingToRelocate',
+    'gender',
+    'race',
+    'veteranStatus',
+    'disabilityStatus',
+  ]),
   text: null,
   search: null,
 };

@@ -71,9 +71,9 @@ export async function run({ devDist, live }) {
     await browser.injectAndFill(ext, lever.url);
     const lv = await lever.evaluate(`({ gender: document.querySelector('[name="eeo[gender]"]').value, race: document.querySelector('[name="eeo[race]"]').value,
       veteran: document.querySelector('[name="eeo[veteran]"]').value, sponsorship: document.querySelector('[name="cards[c1][field3]"]').value,
-      radios: [...document.querySelectorAll('input[type=radio]')].filter((r) => r.checked).length })`);
-    suite.check('Lever-style: EEO selects and the sponsorship card select filled; radios still untouched',
-      lv.gender === 'Decline to self-identify' && lv.race === 'Asian (Not Hispanic or Latino)' && lv.veteran === 'I am not a veteran' && lv.sponsorship === 'No' && lv.radios === 0, JSON.stringify(lv));
+      auth: document.querySelector('[name="cards[c1][field2]"]:checked')?.value ?? null })`);
+    suite.check('Lever-style: EEO selects, the sponsorship card select, and the authorization radio card filled',
+      lv.gender === 'Decline to self-identify' && lv.race === 'Asian (Not Hispanic or Latino)' && lv.veteran === 'I am not a veteran' && lv.sponsorship === 'No' && lv.auth === 'Yes', JSON.stringify(lv));
 
     if (live) {
       const page = await browser.open(LIVE_LEVER_EEO, 5000);

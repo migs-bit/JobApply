@@ -1,11 +1,14 @@
 import { LIMITS } from '../../shared/constants';
 import type { FieldCandidate } from '../../shared/types';
 import { collapse, isShown, nearbyText, resolveLabel, type FormControl } from './field-text';
+import { groupRadios, radioGroupLabel, radioOptionLabel } from './radio-group';
 import { hashId, uniqueSelector } from './selector';
 
 /**
  * Generic DOM scanner: finds form fields in the top-level document and
  * describes them as FieldCandidates. No site-specific logic.
+ *
+ * Radios sharing a name are reported as ONE field per group (see radio-group.ts).
  *
  * MVP limits: iframes and shadow DOM are not scanned.
  *
@@ -49,21 +52,35 @@ export function scanFields(doc: Document = document): ScanResult {
   const scannableSet: ReadonlySet<Element> = new Set(kept);
   const usedIds = new Set<string>();
 
-  const fields = kept.map((el): FieldCandidate => {
+  // Each radio group is reported once, at the position of its first radio.
+  const isRadio = (el: FormControl): el is HTMLInputElement => el instanceof HTMLInputElement && el.type === 'radio';
+  const groupOf = new Map<HTMLInputElement, HTMLInputElement[]>();
+  for (const group of groupRadios(kept.filter(isRadio))) {
+    if (group[0]) groupOf.set(group[0], group);
+  }
+
+  const fields: FieldCandidate[] = [];
+  for (const el of kept) {
+    if (isRadio(el) && !groupOf.has(el)) continue; // a later radio of a group already reported
     const selector = uniqueSelector(el);
-    return {
+    const base = {
       id: uniqueId(hashId(selector), usedIds),
       selector,
       tag: el.localName as FieldCandidate['tag'],
       type: typeOf(el),
       name: attr(el, 'name'),
       autocomplete: attr(el, 'autocomplete'),
-      label: resolveLabel(el),
       placeholder: attr(el, 'placeholder'),
-      ariaLabel: attr(el, 'aria-label'),
       nearbyText: nearbyText(el, scannableSet),
     };
-  });
+    const group = isRadio(el) ? groupOf.get(el) : undefined;
+    if (group) {
+      // The question is the group's label or nearby text; each radio's own label is an option, never the question.
+      fields.push({ ...base, ...radioGroupLabel(group), options: group.slice(0, LIMITS.optionsPerField).map(radioOptionLabel) });
+    } else {
+      fields.push({ ...base, label: resolveLabel(el), ariaLabel: attr(el, 'aria-label') });
+    }
+  }
 
   return { fields, skipped, truncated };
 }

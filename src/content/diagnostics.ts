@@ -1,7 +1,7 @@
 /**
  * Dev-only diagnostics for the content script. Everything goes through
  * debug()/debugTable(), which compile to no-ops in production builds.
- * Text-field values are never logged; for dropdowns, the chosen option is.
+ * Text-field values are never logged; for dropdowns and radio groups, the chosen option is.
  */
 import { debug, debugTable } from '../shared/log';
 import type { FieldCandidate, FillPlan, FillResult } from '../shared/types';
@@ -38,7 +38,8 @@ export function logScan(fields: FieldCandidate[], skipped: ReturnType<typeof sca
 
 export function labelOf(fields: FieldCandidate[], fieldId: string): string {
   const f = fields.find((x) => x.id === fieldId);
-  return f ? f.label || f.ariaLabel || f.placeholder || f.name : fieldId;
+  // Lever-style card questions have no label; their question is the nearby text.
+  return f ? f.label || f.ariaLabel || f.placeholder || f.nearbyText.slice(0, 60) || f.name : fieldId;
 }
 
 export function logResolutions(fields: FieldCandidate[], plan: FillPlan): void {
@@ -73,30 +74,40 @@ export function logFill(fields: FieldCandidate[], results: FillResult[]): void {
 }
 
 /**
- * One row per <select> on the page (dev builds only): resolved key, chosen
- * option, the options on offer, and the outcome. Makes "why didn't this
- * dropdown fill?" answerable without guessing.
+ * Dev builds only: one row per <select> and one row per radio group (not per
+ * radio), each with the resolved key, chosen option, the options on offer,
+ * and the outcome. Makes "why didn't this fill?" answerable without guessing.
  */
-export function logSelectDiagnostics(fields: FieldCandidate[], plan: FillPlan, results: FillResult[]): void {
+export function logChoiceDiagnostics(fields: FieldCandidate[], plan: FillPlan, results: FillResult[]): void {
+  const row = (f: FieldCandidate, fallbackOptions: string[]) => {
+    const resolution = plan.resolutions.find((r) => r.fieldId === f.id);
+    const result = results.find((r) => r.fieldId === f.id);
+    const key = resolution?.key ?? 'unknown';
+    return {
+      field: labelOf(fields, f.id),
+      name: f.name,
+      key,
+      status: result?.status ?? 'skipped',
+      // A result means a fill was attempted; otherwise say why none was.
+      reason: result ? (result.reason ?? '') : key === 'unknown' ? 'no matching profile key' : 'nothing saved for this key',
+      'matched option': result?.choice?.matched ?? (result ? 'no option matched' : ''),
+      'available options': (result?.choice?.options ?? fallbackOptions).join(' | '),
+    };
+  };
+
   const selects = fields.filter((f) => f.tag === 'select');
-  if (selects.length === 0) return;
-  debug(`selects: ${selects.length}`);
-  debugTable(
-    selects.map((f) => {
-      const resolution = plan.resolutions.find((r) => r.fieldId === f.id);
-      const result = results.find((r) => r.fieldId === f.id);
-      const el = document.querySelector(f.selector);
-      const options = result?.select?.options ?? (el instanceof HTMLSelectElement ? optionTexts(Array.from(el.options)) : []);
-      const key = resolution?.key ?? 'unknown';
-      return {
-        field: labelOf(fields, f.id),
-        key,
-        status: result?.status ?? 'skipped',
-        // A result means a fill was attempted; otherwise say why none was.
-        reason: result ? (result.reason ?? '') : key === 'unknown' ? 'no matching profile key' : 'nothing saved for this key',
-        'matched option': result?.select?.matched ?? (result ? 'no option matched' : ''),
-        'available options': options.join(' | '),
-      };
-    }),
-  );
+  if (selects.length > 0) {
+    debug(`selects: ${selects.length}`);
+    debugTable(
+      selects.map((f) => {
+        const el = document.querySelector(f.selector);
+        return row(f, el instanceof HTMLSelectElement ? optionTexts(Array.from(el.options)) : []);
+      }),
+    );
+  }
+  const groups = fields.filter((f) => f.type === 'radio');
+  if (groups.length > 0) {
+    debug(`radio groups: ${groups.length}`);
+    debugTable(groups.map((f) => row(f, (f.options ?? []).slice(0, 10))));
+  }
 }

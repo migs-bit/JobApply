@@ -45,11 +45,16 @@ export type DerivedKey = 'fullName';
 /** Everything the resolver can map a field to. */
 export type ResolvableKey = ProfileKey | DerivedKey;
 
-/** One fillable element, as extracted by the DOM scanner. */
+/**
+ * One fillable field, as extracted by the DOM scanner. A radio group (several
+ * `<input type="radio">` sharing a name) is ONE field: `type` is "radio",
+ * `selector` points at its first radio, `label`/`nearbyText` hold the
+ * question, and `options` holds the radios' own labels ("Yes", "No").
+ */
 export interface FieldCandidate {
   /** Stable id, e.g. a hash of the selector. */
   id: string;
-  /** CSS selector used to re-find the element when filling. */
+  /** CSS selector used to re-find the element (for a radio group, its first radio). */
   selector: string;
   tag: 'input' | 'textarea' | 'select';
   /** The input `type` attribute (empty for textarea/select). */
@@ -62,6 +67,8 @@ export interface FieldCandidate {
   ariaLabel: string;
   /** Text from the field's surrounding container. */
   nearbyText: string;
+  /** Radio groups only: each radio's label, in page order. Never used for matching, only diagnostics. */
+  options?: string[];
 }
 
 /** Which resolver tier produced a match; recorded so every fill is explainable. */
@@ -121,8 +128,8 @@ export interface FillResult {
   requiresReview: boolean;
   /** What the field held before filling, so the overlay's Undo (step 9) can restore it. */
   previousValue: string;
-  /** Dropdowns only, for diagnostics: the chosen option's text (null if none) and the available options. */
-  select?: { matched: string | null; options: string[] };
+  /** Dropdowns and radio groups, for diagnostics: the chosen option's text (null if none) and the options on offer. */
+  choice?: { matched: string | null; options: string[] };
 }
 
 /** What the content script reports back to the popup: counts only, never values. */

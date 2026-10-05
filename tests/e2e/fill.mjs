@@ -71,13 +71,13 @@ export async function run({ devDist }) {
     // ---- guards, called directly with crafted instructions ----
     const guards = await browser.open(uniqueUrl(`${server.origin}/filler-cases.html`));
     await guards.evaluate(fillerBundle);
-    const g = await guards.evaluate(`(() => {
+    const g = await guards.evaluate(`(async () => {
       const base = { key: 'email', value: 'x@example.com', confidence: 0.9, source: 'dictionary', requiresReview: false };
-      return window.__applyFill([
+      return (await window.__applyFill([
         { ...base, fieldId: 'pw', selector: '#pw' },
         { ...base, fieldId: 'bad', selector: '#[' },
         { ...base, fieldId: 'gone', selector: '#nope' },
-      ]).map((r) => r.status + ': ' + r.reason);
+      ])).map((r) => r.status + ': ' + r.reason);
     })()`);
     suite.check('guards: a selector now pointing at a password field, a malformed selector, a missing element: all skipped',
       JSON.stringify(g) === JSON.stringify(['skipped: element is not a fillable text field', 'skipped: element not found', 'skipped: element not found']), JSON.stringify(g));

@@ -5,18 +5,18 @@ What's planned, what's deferred, and why. Released changes are in [CHANGELOG.md]
 ## In progress
 
 - **Phase 1 is done:** the expanded profile (salary, notice period, work eligibility, EEO) and native `<select>` filling with synonym matching.
-- **Radio buttons are next** (see below).
+- **Phase 2, radio buttons, is built** on branch `phase2-radio`, pending manual verification:
+  - each group is one question, matched on its question text;
+  - answered with a real `.click()`, re-checked after 100 ms;
+  - one diagnostics row per group;
+  - always flagged for review.
 
 ## Next
 
 Prioritized, not started.
 
-1. **Radio button support.** Lever and Ashby EEO sections and many custom Yes/No questions use radios, which are skipped today.
-   - A radio group is several inputs sharing one `name`; the resolver must treat the group as one question.
-   - The filler must call `.click()` on the correct radio rather than setting `.checked`, because React-controlled radios only update on a real click event.
-   - Reuse the choice synonyms in `src/shared/choices.ts` to pick the radio by its label.
-2. **Type-to-search widgets.** Examples: Lever's "Current location", Ashby's country picker. They need per-widget interaction (type, wait for suggestions, pick one); setting a value isn't enough. They also need a location key in the profile.
-3. **Iframe support, same-origin first (iCIMS), cross-origin later (embedded Greenhouse).**
+1. **Type-to-search widgets.** Examples: Lever's "Current location", Ashby's country picker. They need per-widget interaction (type, wait for suggestions, pick one); setting a value isn't enough. They also need a location key in the profile.
+2. **Iframe support, same-origin first (iCIMS), cross-origin later (embedded Greenhouse).**
    - **What we saw on iCIMS:**
      - The application form renders inside a same-origin iframe, so the scanner never sees it. The dev log correctly reports "14 iframe(s) on this page were not scanned".
      - The only controls found in the top document were OneTrust cookie widgets (`ot-group-id-*`, `vendor-search-handler`), correctly skipped as "not rendered".
@@ -24,12 +24,15 @@ Prioritized, not started.
    - **Same-origin frames:** inject into all frames, scan and fill per frame, and allow subframe messages in the service worker's guard (it accepts the top frame only today). The click's `activeTab` grant may already cover same-origin frames; that needs confirming. Add dictionary coverage for `PersonProfileFields.*`.
    - **Cross-origin frames:** need a per-site permission prompt (optional host permissions). That's a permission-design decision.
    - The overlay must know which frame each row belongs to.
-4. **Resume file upload.** Store a resume locally and attach it to file inputs. Chrome restricts setting file inputs programmatically, so this needs research.
-5. **Answer library.** Learn answers to custom questions, stored locally: one normalized question hash → one saved answer. Offered for review, never auto-submitted.
+3. **Resume file upload.** Store a resume locally and attach it to file inputs. Chrome restricts setting file inputs programmatically, so this needs research.
+4. **Answer library.** Learn answers to custom questions, stored locally: one normalized question hash → one saved answer. Offered for review, never auto-submitted.
 
 ## Later
 
 Known, lower priority.
+
+- **Checkboxes** ("check all that apply"): different group semantics from radios, so they need their own design.
+- **Clearing a radio answer on Undo.** No user action can un-select a radio, so React-style forms never see a programmatic clear. Undo leaves those answers in place and says so. A reliable clear would need per-framework handling.
 
 - **Workday multi-page flows:** custom widgets plus step navigation; likely needs a site adapter.
 - **Multi-language forms:** the dictionary, synonyms and choices are English-only.

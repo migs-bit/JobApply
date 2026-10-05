@@ -36,8 +36,14 @@ export async function run({ devDist, prodDist }) {
         const els = document.querySelectorAll(x.selector);
         if (els.length !== 1) f.push('selector not unique: ' + x.selector); else byEl.set(els[0], x);
       }
-      for (const el of document.querySelectorAll('[data-expect-skip],[data-expect-label],[data-expect-nearby],[data-expect-nearby-not],[data-expect-type]')) {
+      for (const el of document.querySelectorAll('[data-expect-skip],[data-expect-label],[data-expect-nearby],[data-expect-nearby-not],[data-expect-type],[data-expect-grouped]')) {
         const x = byEl.get(el), who = el.name || el.type, d = el.dataset;
+        if (d.expectGrouped !== undefined) {
+          const first = document.querySelector('input[type=radio][name="' + el.name + '"]');
+          if (x) f.push(who + ': later radio reported on its own (should be part of its group)');
+          if (!byEl.get(first)) f.push(who + ': its group was not reported');
+          continue;
+        }
         if (d.expectSkip !== undefined) {
           if (x) f.push(who + ': should be skipped (' + d.expectSkip + ')');
           else if (el.name && !skipped.some((s) => s.name === el.name && s.reason === d.expectSkip)) f.push(who + ': skipped for the wrong reason');
@@ -48,6 +54,7 @@ export async function run({ devDist, prodDist }) {
         if (d.expectNearby !== undefined && (d.expectNearby === '' ? x.nearbyText !== '' : !x.nearbyText.includes(d.expectNearby))) f.push(who + ': nearbyText ' + JSON.stringify(x.nearbyText));
         if (d.expectNearbyNot !== undefined && x.nearbyText.includes(d.expectNearbyNot)) f.push(who + ': nearbyText contains ' + JSON.stringify(d.expectNearbyNot));
         if (d.expectType !== undefined && x.type !== d.expectType) f.push(who + ': type ' + x.type);
+        if (d.expectOptions !== undefined && (x.options ?? []).join('|') !== d.expectOptions) f.push(who + ': options ' + JSON.stringify(x.options));
       }
       return f;
     })(${JSON.stringify(first.fields)}, ${JSON.stringify(first.skipped)})`);
@@ -59,6 +66,8 @@ export async function run({ devDist, prodDist }) {
     const dups = first.fields.filter((x) => x.name === 'dup1' || x.name === 'dup2');
     suite.check('duplicate-id inputs get distinct, non-#id selectors', dups.length === 2 && dups[0].selector !== dups[1].selector && !dups.some((x) => x.selector === '#dup'));
     suite.check('field ids are unique', new Set(first.fields.map((x) => x.id)).size === first.fields.length);
+    const radios = first.fields.filter((x) => x.type === 'radio');
+    suite.check('a radio group is reported as one field with its options', radios.length === 1 && radios[0].options?.join('|') === 'Yes|No', JSON.stringify(radios.map((x) => [x.name, x.options])));
 
     const second = await scan();
     suite.check('ids and selectors are stable across re-scans', JSON.stringify(second.fields.map((x) => [x.id, x.selector])) === JSON.stringify(first.fields.map((x) => [x.id, x.selector])));

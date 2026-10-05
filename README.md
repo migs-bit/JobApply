@@ -25,7 +25,7 @@ Profile fields:
 - **Work eligibility (Yes/No):** authorized to work, needs sponsorship, willing to relocate.
 - **Optional voluntary self-identification (EEO):** gender, race/ethnicity, veteran status, disability status.
 
-Eligibility and EEO answers are picked from fixed choices on the options page. Forms word the dropdown options differently ("I am not a veteran" vs "I am not a protected veteran"), so each answer is matched against a list of known wordings:
+Eligibility and EEO answers are picked from fixed choices on the options page, and fill both dropdowns and radio-button questions. A radio group is treated as one question: it's matched on the question text, never on a lone "Yes", and answered with a real click. Forms word the dropdown options differently ("I am not a veteran" vs "I am not a protected veteran"), so each answer is matched against a list of known wordings:
 - the comparison ignores case, spacing and punctuation, but must match the **whole** option text, so "Male" never selects "Female";
 - if no option fits, or two options fit equally, the dropdown is skipped rather than guessed.
 
@@ -39,7 +39,8 @@ Eligibility and EEO answers are picked from fixed choices on the options page. F
 | **Forms inside iframes**, e.g. Greenhouse forms embedded on a company's careers page | Not scanned. Open the form on its own page (boards.greenhouse.io) instead. |
 | **Custom widgets**: type-to-search boxes, custom dropdowns, shadow DOM components | Not filled. Only standard text inputs, text areas, and plain `<select>` dropdowns are filled. |
 | **File uploads** (resume, cover letter) | Not supported. You attach files yourself. |
-| **Checkboxes, radio buttons, open-ended questions** ("Why do you want to work here?") | Left for you. Detected, but never filled. |
+| **Checkboxes and open-ended questions** ("Why do you want to work here?") | Left for you. Detected, but never filled. |
+| **Radio questions you haven't answered in your profile**, or custom ones ("Have you built…?") | Left for you. Only work-eligibility and EEO radio questions are answered. |
 | **Submitting or clicking "Next"** | Never. Multi-page forms need a click on **Fill this page** for each page. |
 | **AI-written answers** | Not in this version. A future optional AI fallback will require **your own** API key and explicit consent before first use. |
 
@@ -137,7 +138,7 @@ test-page/        fixture pages for manual checks
 
 ## Roadmap
 
-See [ROADMAP.md](ROADMAP.md). Next up: radio buttons, type-to-search widgets, iframe-embedded forms (iCIMS, then embedded Greenhouse), resume upload, and a local answer library.
+See [ROADMAP.md](ROADMAP.md). Next up: type-to-search widgets, iframe-embedded forms (iCIMS, then embedded Greenhouse), resume upload, and a local answer library.
 
 ## Contributing
 

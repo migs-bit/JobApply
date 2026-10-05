@@ -10,13 +10,13 @@
  *
  * Diagnostics go through debug(), so production builds log nothing. Use
  * `npm run dev` to see them. Text-field values are never logged; for
- * dropdowns, dev builds log which option was chosen so matching failures can
+ * dropdowns and radio groups, dev builds log which option was chosen so matching failures can
  * be diagnosed.
  */
 import { CONTENT_READY_FLAG } from '../shared/constants';
 import { sendToBackground } from '../shared/messaging';
 import type { FieldCandidate, FillPlan, FillResult, FillSummary, MsgResponse } from '../shared/types';
-import { labelOf, logFill, logResolutions, logScan, logSelectDiagnostics } from './diagnostics';
+import { labelOf, logChoiceDiagnostics, logFill, logResolutions, logScan } from './diagnostics';
 import { applyFill, undoFill } from './filler/dom-filler';
 import { showOverlay, type OverlayRow } from './overlay/confirmation-ui';
 import { scanFields } from './scanner/dom-scanner';
@@ -44,9 +44,9 @@ async function fillPage(): Promise<FillSummary> {
   if (!res.ok) throw new Error(`resolve failed: ${res.error}`);
   logResolutions(fields, res.data);
 
-  const results = applyFill(res.data.instructions);
+  const results = await applyFill(res.data.instructions);
   logFill(fields, results);
-  logSelectDiagnostics(fields, res.data, results);
+  logChoiceDiagnostics(fields, res.data, results);
   const overlayShown = presentResults(fields, res.data, results);
 
   const filled = results.filter((r) => r.status === 'filled');
@@ -72,7 +72,8 @@ function presentResults(fields: FieldCandidate[], plan: FillPlan, results: FillR
     .map((r) => ({
       label: labelOf(fields, r.fieldId),
       key: r.key,
-      value: r.status === 'filled' ? (values.get(r.fieldId) ?? '') : '',
+      // For dropdowns and radios, show the option actually chosen ("I am not a veteran"), not the generic label.
+      value: r.status === 'filled' ? (r.choice?.matched ?? values.get(r.fieldId) ?? '') : '',
       confidence: r.confidence,
       source: r.source,
       requiresReview: r.requiresReview,

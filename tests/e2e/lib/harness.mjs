@@ -82,13 +82,22 @@ export async function launchChrome() {
     while ((i = buf.indexOf('\0')) >= 0) {
       const msg = JSON.parse(buf.slice(0, i));
       buf = buf.slice(i + 1);
-      if (msg.id && pending.has(msg.id)) { pending.get(msg.id)(msg); pending.delete(msg.id); }
-      else for (const l of listeners) l(msg);
+      if (msg.id && pending.has(msg.id)) { pending.get(msg.id).settle(msg); pending.delete(msg.id); continue; }
+      // A target that goes away (e.g. the popup closing itself) never answers its pending calls: fail them now.
+      if (msg.method === 'Target.detachedFromTarget') {
+        for (const [id, p] of pending) if (p.sessionId === msg.params.sessionId) { p.settle({ error: { message: 'target closed' } }); pending.delete(id); }
+      }
+      for (const l of listeners) l(msg);
     }
   });
+  /** Every call settles: with Chrome's answer, when its target closes, or after 30 s, so no suite can hang. */
   const send = (method, params = {}, sessionId) => new Promise((res, rej) => {
     const id = nextId++;
-    pending.set(id, (m) => (m.error ? rej(new Error(`${method}: ${m.error.message}`)) : res(m.result)));
+    const timer = setTimeout(() => {
+      if (pending.delete(id)) rej(new Error(`${method}: no answer within 30s`));
+    }, 30_000);
+    const settle = (m) => { clearTimeout(timer); m.error ? rej(new Error(`${method}: ${m.error.message}`)) : res(m.result); };
+    pending.set(id, { settle, sessionId });
     toChrome.write(JSON.stringify({ id, method, params, ...(sessionId ? { sessionId } : {}) }) + '\0');
   });
   await sleep(800);
