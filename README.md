@@ -79,7 +79,7 @@ Each field goes through four matching tiers in order, and the first match wins:
 | 1. Autocomplete | The page's own `autocomplete="email"`-style hint | 1.0 |
 | 2. Dictionary | Word patterns in the field's label and name | 0.9 |
 | | The same patterns in its placeholder or short nearby text | 0.7 |
-| 3. Learned | An answer you taught for this exact question ("Teach this", below) | 0.85 |
+| 3. Learned | An answer you taught for this exact question ("Teach this", below) | 0.85 (typed answers always reviewed) |
 | 4. Fuzzy | Word overlap with synonym phrases ("Best number to reach you" → phone) | 0.6 max |
 
 - **Flagged for review:** anything below 0.8. That covers every Tier 4 match, which is why fuzzy fills always show in yellow.
@@ -97,7 +97,9 @@ Forms word the same questions differently, so some fields won't fill. The panel 
 
 To teach several at once, answer them all, then click **Teach all**. Untick a row's checkbox to leave it out. Rows you haven't answered are skipped with a reminder.
 
-The answer is remembered, and used the next time a form asks that question.
+The answer is remembered, and used the next time a form asks that question:
+- **Typed answers** (text boxes, text areas) are always flagged yellow for review, because they can be out of date or specific to one company ("Why do you want to work here?"). The panel stays open until you close it.
+- **Dropdown and radio answers** aren't flagged, because they must exactly match one of the page's own options.
 
 - **A custom question** ("How did you hear about us?") is remembered as *question → your answer*.
 - **A known question whose options didn't match** (e.g. a veteran-status dropdown worded unusually) is remembered as *this option means my saved answer*. That then works on any site using the same wording.

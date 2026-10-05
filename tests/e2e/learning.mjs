@@ -106,10 +106,13 @@ export async function run({ devDist }) {
     suite.check('case 2 via the filler: still resolved as veteranStatus (dictionary); option matched through the learned wording',
       !!vetRes && vetRes.source === 'dictionary' && vetDiag?.['via learned'] === true && vetDiag?.status === 'filled', JSON.stringify(vetDiag));
     const resultRows = (await inOverlay(browser, second, RESULT_ROWS)).results;
-    suite.check('overlay: learned answers not flagged; veteran (EEO) still flagged for review',
-      resultRows.filter((r) => r.text.includes('learned · 85% · learned')).length === 4
-      && resultRows.filter((r) => r.text.includes('learned · 85% · learned')).every((r) => !r.cls.includes('review')) && resultRows.find((r) => r.text.includes('veteranStatus'))?.cls.includes('review'),
-      resultRows.map((r) => r.text.slice(0, 40)).join(' | '));
+    const learnedRows = resultRows.filter((r) => r.text.includes('learned · 85% · learned'));
+    const flagged = (label) => learnedRows.find((r) => r.text.startsWith(label))?.cls.includes('review');
+    suite.check('overlay: learned typed answers (text, textarea) flagged; learned dropdown/radio answers not; veteran (EEO) flagged',
+      learnedRows.length === 4 && flagged('How did you hear about us?') === true && flagged("Tell us about a project you're proud of") === true
+      && flagged('Preferred work arrangement') === false && flagged('Are you open to contract roles?') === false
+      && resultRows.find((r) => r.text.includes('veteranStatus'))?.cls.includes('review'),
+      learnedRows.map((r) => `${r.cls.includes('review') ? '[R] ' : ''}${r.text.slice(0, 30)}`).join(' | '));
     suite.check('nothing left to teach on this page', (await teachRows(second)).length === 0);
 
     // ---- Options page: edit and delete through the UI ----

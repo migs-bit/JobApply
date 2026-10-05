@@ -8,6 +8,8 @@ All notable changes. The format follows [Keep a Changelog](https://keepachangelo
 
 - **"Teach this" (learning system).** Fields the extension couldn't fill are listed under "Not filled" in the panel. Answer one on the page, click Teach this, and it's remembered:
   - **Custom questions:** remembered as question → answer, used by a new resolver **Tier 3 (learned)**, at 0.85 confidence.
+    - **Typed answers** (text fields, textareas) are always flagged for review, so they show yellow and the panel doesn't auto-close; a generic answer like "Why do you want to work here?" may not fit the next company.
+    - **Learned dropdown and radio answers** aren't flagged.
   - **Known questions whose dropdown or radio options didn't match:** remembered as option text → your saved answer, tried by the fillers after the built-in synonyms. Diagnostics show "via learned".
   - **Teach all:** teaches every ticked row on show in one click. Untick a row to leave it out; unanswered rows are skipped with a reminder.
   - **Managing them:** an options-page **Learned answers** section to edit, delete, or delete all.

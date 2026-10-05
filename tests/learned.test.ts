@@ -121,10 +121,33 @@ describe('Tier 3 (learned) in the resolver: case 1 only', () => {
 });
 
 describe('fill plan: two separate paths', () => {
-  it('case 1: a learned answer becomes the value (and the option to pick); not flagged for review', () => {
+  it('case 1: a learned answer becomes the value (and the option to pick); dropdown and radio answers aren’t flagged', () => {
+    const one = store((x) => learnAnswer(x, 'Preferred work arrangement', 'Remote', 'choice'));
+    const learned = store((x) => learnAnswer(x, 'Open to contract roles?', 'Yes', 'choice'), one);
+    const plan = buildFillPlan(
+      [field({ id: 's', tag: 'select', type: '', label: 'Preferred work arrangement' }), field({ id: 'r', type: 'radio', label: 'Open to contract roles?', options: ['Yes', 'No'] })],
+      EMPTY_PROFILE,
+      learned,
+    );
+    assert.deepEqual(plan.instructions.map((i) => [i.key, i.value, i.optionCandidates?.[0], i.requiresReview, i.confidence]), [
+      ['learned', 'Remote', 'Remote', false, 0.85],
+      ['learned', 'Yes', 'Yes', false, 0.85],
+    ]);
+  });
+  it('case 1: a learned answer typed into a text field or textarea is always flagged for review', () => {
+    const one = store((x) => learnAnswer(x, 'How did you hear about us?', 'LinkedIn', 'text'));
+    const learned = store((x) => learnAnswer(x, 'Why do you want to work here?', 'Because…', 'text'), one);
+    const plan = buildFillPlan(
+      [field({ id: 't', label: 'How did you hear about us?' }), field({ id: 'a', tag: 'textarea', type: '', label: 'Why do you want to work here?' })],
+      EMPTY_PROFILE,
+      learned,
+    );
+    assert.deepEqual(plan.instructions.map((i) => [i.fieldId, i.requiresReview, i.confidence]), [['t', true, 0.85], ['a', true, 0.85]]);
+  });
+  it('even an answer first taught from a dropdown is flagged when it’s typed into a text field', () => {
     const learned = store((x) => learnAnswer(x, 'Preferred work arrangement', 'Remote', 'choice'));
-    const plan = buildFillPlan([field({ tag: 'select', type: '', label: 'Preferred work arrangement' })], EMPTY_PROFILE, learned);
-    assert.deepEqual(plan.instructions.map((i) => [i.key, i.value, i.optionCandidates?.[0], i.requiresReview, i.source]), [['learned', 'Remote', 'Remote', false, 'learned']]);
+    const plan = buildFillPlan([field({ label: 'Preferred work arrangement' })], EMPTY_PROFILE, learned);
+    assert.equal(plan.instructions[0]?.requiresReview, true);
   });
   it('case 2: learned option wordings ride along for the saved code only, after the built-in synonyms', () => {
     const learned = ok(learnOption(EMPTY_LEARNED, 'veteranStatus', "No, I'm not a veteran", 'not_veteran')).store;

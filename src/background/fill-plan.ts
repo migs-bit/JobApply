@@ -26,7 +26,16 @@ export function buildFillPlan(fields: readonly FieldCandidate[], profile: Profil
       // Case 1: a taught answer. Typed into text fields as-is; for dropdowns and radios it's the option to pick.
       const taught = learned.answers[normalizeQuestion(questionTextOf(field))];
       if (!taught) continue;
-      instructions.push({ ...base, key: 'learned', value: taught.answer, optionCandidates: [taught.answer], requiresReview: r.confidence < REVIEW_THRESHOLD });
+      // Typed answers can be stale or company-specific ("Why do you want to work here?"), so they're always
+      // reviewed. A dropdown or radio answer must exactly match one of the page's own options, so it isn't.
+      const picksAnOption = field.tag === 'select' || field.type === 'radio';
+      instructions.push({
+        ...base,
+        key: 'learned',
+        value: taught.answer,
+        optionCandidates: [taught.answer],
+        requiresReview: !picksAnOption || r.confidence < REVIEW_THRESHOLD,
+      });
       continue;
     }
 
