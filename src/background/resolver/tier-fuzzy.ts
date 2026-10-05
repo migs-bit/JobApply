@@ -5,8 +5,9 @@ import { canResolve, isCompatible } from './field-rules';
 import { normalizeForMatching } from './tier-dictionary';
 
 /**
- * Tier 3: token-set (Jaccard) similarity between the field's text and each
- * key's synonym phrases. Only reached when Tiers 1 and 2 found nothing.
+ * Tier 4: token-set (Jaccard) similarity between the field's text and each
+ * key's synonym phrases. Only reached when Tiers 1-3 (autocomplete,
+ * dictionary, learned) found nothing.
  *
  * Deliberately conservative:
  * - similarity below CONFIDENCE.fuzzyMinimum → no match (the field stays "unknown");

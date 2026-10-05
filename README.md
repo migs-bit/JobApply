@@ -72,27 +72,44 @@ If nothing can be filled, the popup stays open and says why, e.g. "No form field
 
 ## How it decides what goes where
 
-Each field goes through three matching tiers in order, and the first match wins:
+Each field goes through four matching tiers in order, and the first match wins:
 
 | Tier | Signal | Confidence |
 |---|---|---|
 | 1. Autocomplete | The page's own `autocomplete="email"`-style hint | 1.0 |
 | 2. Dictionary | Word patterns in the field's label and name | 0.9 |
 | | The same patterns in its placeholder or short nearby text | 0.7 |
-| 3. Fuzzy | Word overlap with synonym phrases ("Best number to reach you" → phone) | 0.6 max |
+| 3. Learned | An answer you taught for this exact question ("Teach this", below) | 0.85 |
+| 4. Fuzzy | Word overlap with synonym phrases ("Best number to reach you" → phone) | 0.6 max |
 
-- **Flagged for review:** anything below 0.8. That covers every Tier 3 match, which is why fuzzy fills always show in yellow.
-- **Left for you:** anything that matches no tier.
+- **Flagged for review:** anything below 0.8. That covers every Tier 4 match, which is why fuzzy fills always show in yellow.
+- **Left for you, or teach it:** anything that matches no tier is listed under "Not filled" in the panel.
 - **Type rules:** a field's type limits what it can match. An email box can only get your email, and a dropdown only a country or state.
 - **Guarded against false positives:** "Referrer email" and "Company website" stay unmatched, and "Please *state* your salary…" is a salary question, not a state field.
 - **Guarded against flipped answers:** "Authorized to work?" wants Yes and "Require sponsorship?" wants No. A question mixing the two ("authorized to work *without* sponsorship?") is left for you, and so are "relocation *assistance*" and "*current* salary" questions.
 - **Question text counts for question keys only.** Sponsorship, authorization, relocation, salary and notice-period questions can match from the question text around a field, as on Lever's custom question cards, at review-level confidence. EEO answers only match a field's own label or name.
+
+## Teach this
+
+Forms word the same questions differently, so some fields won't fill. The panel lists them under **Not filled**:
+1. Answer the field on the page yourself: type, pick an option, or click a radio.
+2. Click **Teach this** next to it.
+
+To teach several at once, answer them all, then click **Teach all**. Untick a row's checkbox to leave it out. Rows you haven't answered are skipped with a reminder.
+
+The answer is remembered, and used the next time a form asks that question.
+
+- **A custom question** ("How did you hear about us?") is remembered as *question → your answer*.
+- **A known question whose options didn't match** (e.g. a veteran-status dropdown worded unusually) is remembered as *this option means my saved answer*. That then works on any site using the same wording.
+- **Managing them:** **Options → Learned answers** lets you edit or delete them, one at a time or all at once.
+- **What's stored:** only the question or option text. No site or address is kept, and nothing leaves your device.
 
 ## Privacy and security
 
 - **No network access at all.** There is no network code, and the extension's Content Security Policy (`default-src 'none'`) blocks requests as a backstop.
 - **Minimal permissions:** `storage`, `activeTab`, and `scripting`. There are no website permissions, so Chrome shows no install warnings, and the extension can only touch a tab after you click **Fill this page** on it.
 - **Your profile stays in the extension's background process.** A web page only ever receives the values for the fields actually being filled. The popup and logs never contain profile values.
+- **Learned answers stay local:** stored like your profile, never logged, never sent anywhere. "Teach this" reads only the one field you clicked it for, and only on a real click; a page can't trigger it.
 - **Hidden fields are never filled,** whether transparent, clipped, 1px, or off-screen. Hidden fields are a known autofill-phishing trick for harvesting data you never see being filled.
 - **The results panel is isolated from the page.** It's built in a closed shadow root, and page text is inserted only as plain text, so a hostile page can't read it, restyle it, or inject content into it.
 - **Supply chain.** Dependency versions are pinned exactly, npm install scripts are disabled, and the only runtime dependencies are React and React DOM.
@@ -120,7 +137,9 @@ Text-field values are never logged. Dev builds do log which dropdown option was 
 - `index.html`: a sample application;
 - `scanner-cases.html`: scanner edge cases;
 - `filler-cases.html`: fill and safety cases;
-- `eeo-cases.html`: eligibility, salary, EEO and dropdown-matching cases.
+- `eeo-cases.html`: eligibility, salary, EEO and dropdown-matching cases;
+- `radio-cases.html`: radio groups;
+- `learn-cases.html`: "Teach this".
 
 Every control on the case pages declares its expected result.
 

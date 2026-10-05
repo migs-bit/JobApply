@@ -1,38 +1,52 @@
 import { choiceFor } from '../shared/choices';
 import { ALWAYS_REVIEW_KEYS, REVIEW_THRESHOLD } from '../shared/constants';
-import type { FieldCandidate, FillPlan, Profile, ResolvableKey } from '../shared/types';
+import { normalizeQuestion, questionTextOf } from '../shared/question';
+import type { FieldCandidate, FillInstruction, FillPlan, Profile, ResolvableKey } from '../shared/types';
 import { resolveFields } from './resolver/field-resolver';
+import { EMPTY_LEARNED, learnedOptionsFor, type LearnedStore } from './storage/learned-store';
 
 /**
  * Turns scanned fields into a fill plan: resolve every field, then attach
- * profile values only where there's something to fill. Pure, so it's unit
- * tested directly.
+ * values only where there's something to fill. Pure, so it's unit tested
+ * directly. Values come from the profile, or for 'learned' fields from the
+ * user's taught answers (case 1). Learned option wordings (case 2) ride along
+ * as `learnedOptions`, limited to the user's saved answer for that key.
  */
-export function buildFillPlan(fields: readonly FieldCandidate[], profile: Profile): FillPlan {
-  const resolutions = resolveFields(fields, profile);
+export function buildFillPlan(fields: readonly FieldCandidate[], profile: Profile, learned: LearnedStore = EMPTY_LEARNED): FillPlan {
+  const resolutions = resolveFields(fields, profile, learned);
   const byId = new Map(fields.map((f) => [f.id, f]));
 
   const instructions: FillPlan['instructions'] = [];
   for (const r of resolutions) {
     const field = byId.get(r.fieldId);
     if (r.key === 'unknown' || !field) continue;
+    const base = { fieldId: r.fieldId, selector: field.selector, confidence: r.confidence, source: r.source };
+
+    if (r.key === 'learned') {
+      // Case 1: a taught answer. Typed into text fields as-is; for dropdowns and radios it's the option to pick.
+      const taught = learned.answers[normalizeQuestion(questionTextOf(field))];
+      if (!taught) continue;
+      instructions.push({ ...base, key: 'learned', value: taught.answer, optionCandidates: [taught.answer], requiresReview: r.confidence < REVIEW_THRESHOLD });
+      continue;
+    }
+
     const saved = profileValue(r.key, profile);
     if (!saved) continue; // nothing saved for this key: send nothing
 
     // A choice code becomes its label (for text boxes) plus the option texts
     // that mean it (for dropdowns, whose wording varies by form).
     const choice = choiceFor(r.key, saved);
-    instructions.push({
-      fieldId: r.fieldId,
+    const taughtOptions = choice ? learnedOptionsFor(learned, r.key as keyof Profile, saved) : [];
+    const instruction: FillInstruction = {
+      ...base,
       key: r.key,
-      selector: field.selector,
       value: choice ? choice.label : saved,
       ...(choice ? { optionCandidates: choice.synonyms } : {}),
-      confidence: r.confidence,
-      source: r.source,
+      ...(taughtOptions.length ? { learnedOptions: taughtOptions } : {}),
       // Sensitive answers (EEO, work eligibility, salary) always get a human look.
       requiresReview: r.confidence < REVIEW_THRESHOLD || (ALWAYS_REVIEW_KEYS as ReadonlySet<string>).has(r.key),
-    });
+    };
+    instructions.push(instruction);
   }
   return { resolutions, instructions };
 }

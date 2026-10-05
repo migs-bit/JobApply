@@ -61,6 +61,7 @@ export const ALWAYS_REVIEW_KEYS: ReadonlySet<ProfileKey> = new Set([
 
 export const STORAGE_KEYS = {
   profile: 'profile',
+  learned: 'learned',
 } as const;
 
 /**
@@ -79,6 +80,10 @@ export const LIMITS = {
   nearbyTextLength: 200,
   /** Max radio options reported per radio group. */
   optionsPerField: 50,
+  /** Max learned answers (case 1) and learned option wordings (case 2), each. */
+  learnedEntries: 500,
+  /** Max characters of a learned answer (long enough for a short paragraph). */
+  learnedAnswerLength: 2000,
 } as const;
 
 /** Confidence assigned by each resolver tier (see Brief.md). */
@@ -86,8 +91,9 @@ export const CONFIDENCE = {
   autocomplete: 1.0,
   dictionaryStrong: 0.9, // pattern matched `name` or `label`
   dictionaryWeak: 0.7, // pattern matched `placeholder` or `nearbyText`
-  fuzzyMinimum: 0.6, // Tier 3: token-set similarity below this is rejected (→ unknown)
-  fuzzyMaximum: 0.6, // Tier 3: confidence = similarity × this, so fuzzy never looks as sure as a dictionary hit
+  learned: 0.85, // Tier 3: the user taught this answer for this exact question
+  fuzzyMinimum: 0.6, // Tier 4: token-set similarity below this is rejected (→ unknown)
+  fuzzyMaximum: 0.6, // Tier 4: confidence = similarity × this, so fuzzy never looks as sure as a dictionary hit
 } as const;
 
 /** Fills below this confidence are flagged for review in the overlay. */

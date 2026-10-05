@@ -13,6 +13,7 @@ import { sanitizeProfile, validateProfile } from '../shared/profile-validation';
 import type { Profile, ProfileErrors, ProfileKey } from '../shared/types';
 import { CHOICES } from '../shared/choices';
 import { SECTIONS, type FieldSpec } from './fields';
+import { LearnedAnswers } from './learned';
 
 type Status = { kind: 'loading' | 'idle' | 'saving' | 'saved' } | { kind: 'error'; message: string };
 
@@ -107,6 +108,8 @@ function OptionsApp() {
           </span>
         </div>
       </form>
+
+      <LearnedAnswers />
     </main>
   );
 }
@@ -149,7 +152,7 @@ function ProfileInput(props: {
 }
 
 /**
- * Reserves the UI for the optional BYO-key AI tier (Tier 5). Intentionally
+ * Reserves the UI for the optional BYO-key AI tier (Tier 6). Intentionally
  * inert: no state, no names, nothing stored. Enabled in a later release.
  */
 function AiFallbackPlaceholder() {

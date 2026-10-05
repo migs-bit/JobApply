@@ -74,8 +74,9 @@ export async function run({ devDist }) {
 
     const fx1 = await clickFill(browser, ext, tab, `${server.origin}/filler-cases.html`, popupConsoles);
     const fx2 = await clickFill(browser, ext, tab, null, popupConsoles);
-    suite.check('second click on a filled page: popup stays open and says why',
-      fx1.status === 'closed' && fx2.status === 'Nothing to fill: those fields are already filled or hidden.' && fx2.kind === 'done', JSON.stringify([fx1.status, fx2.status]));
+    const teachShown = await tab.evaluate(`!!document.querySelector('job-autofill-overlay')`);
+    suite.check('second click on a filled page: nothing new to fill, but the overlay offers "Teach this", so the popup closes',
+      fx1.status === 'closed' && fx2.status === 'closed' && teachShown, JSON.stringify([fx1.status, fx2.status]));
     const scans = tab.consoleCalls.filter((c) => String(c.args[1]).startsWith('scan:')).length;
     suite.check('content script injected once per page (one scan per click)', scans === 3, `${scans} scans for 3 clicks`);
 

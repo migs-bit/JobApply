@@ -37,6 +37,21 @@ export function matchOption(options: readonly OptionLike[], candidates: readonly
   return { reason: 'no option matched' };
 }
 
+export type ChoiceMatch = { index: number; matched: string; viaLearned: boolean } | { reason: 'multiple matches' | 'no option matched' };
+
+/**
+ * Case 2 of learned-store.ts: the built-in synonyms first; only if they find
+ * nothing (or are ambiguous) are the option wordings the user taught tried.
+ * Same whole-string rules for both.
+ */
+export function matchChoice(options: readonly OptionLike[], builtIn: readonly string[], learned: readonly string[] = []): ChoiceMatch {
+  const first = matchOption(options, builtIn);
+  if (!('reason' in first)) return { ...first, viaLearned: false };
+  if (learned.length === 0) return first;
+  const taught = matchOption(options, learned);
+  return 'reason' in taught ? first : { ...taught, viaLearned: true };
+}
+
 /** Visible option texts for diagnostics: the first `max`, each capped at 80 chars. */
 export function optionTexts(options: readonly OptionLike[], max = 10): string[] {
   return options.slice(0, max).map((o) => o.text.replace(/\s+/g, ' ').trim().slice(0, 80));

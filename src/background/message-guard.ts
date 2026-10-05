@@ -1,6 +1,7 @@
+import { CHOICES } from '../shared/choices';
 import { LIMITS } from '../shared/constants';
 import { sanitizeProfile } from '../shared/profile-validation';
-import type { FieldCandidate, Msg, MsgType } from '../shared/types';
+import type { FieldCandidate, LearnedUpdate, Msg, MsgType, ProfileKey } from '../shared/types';
 
 /**
  * Trust boundary for runtime messages. Content scripts run inside pages we
@@ -17,6 +18,12 @@ const ALLOWED_SENDERS: Record<MsgType, 'extension-page' | 'content-script'> = {
   GET_PROFILE: 'extension-page',
   SET_PROFILE: 'extension-page',
   RESOLVE_FIELDS: 'content-script',
+  // "Teach this" is clicked in the overlay, so it arrives from the content script.
+  LEARN_ANSWER: 'content-script',
+  LEARN_OPTION: 'content-script',
+  // Learned answers are only ever listed or edited by our own options page.
+  GET_LEARNED: 'extension-page',
+  UPDATE_LEARNED: 'extension-page',
 };
 
 export function isAllowedSender(type: MsgType, sender: chrome.runtime.MessageSender): boolean {
@@ -55,6 +62,55 @@ export function parseMsg(raw: unknown): Msg | null {
       const fields = raw.fields.map(parseFieldCandidate);
       return fields.every((f): f is FieldCandidate => f !== null) ? { type: 'RESOLVE_FIELDS', fields } : null;
     }
+    case 'LEARN_ANSWER': {
+      const question = text(raw.question, LIMITS.fieldTextLength);
+      const answer = text(raw.answer, LIMITS.learnedAnswerLength);
+      if (question === null || answer === null || (raw.kind !== 'text' && raw.kind !== 'choice')) return null;
+      return { type: 'LEARN_ANSWER', question, answer, kind: raw.kind };
+    }
+    case 'LEARN_OPTION': {
+      const optionText = text(raw.optionText, LIMITS.fieldTextLength);
+      if (!isChoiceKey(raw.key) || optionText === null) return null;
+      return { type: 'LEARN_OPTION', key: raw.key, optionText };
+    }
+    case 'GET_LEARNED':
+      return { type: 'GET_LEARNED' };
+    case 'UPDATE_LEARNED': {
+      const op = parseLearnedUpdate(raw.op);
+      return op ? { type: 'UPDATE_LEARNED', op } : null;
+    }
+    default:
+      return null;
+  }
+}
+
+/** A string within `max` characters, or null. Over-long input is rejected, not truncated: it isn't ours. */
+function text(v: unknown, max: number): string | null {
+  return typeof v === 'string' && v.length <= max ? v : null;
+}
+
+function isChoiceKey(v: unknown): v is ProfileKey {
+  return typeof v === 'string' && Object.hasOwn(CHOICES, v);
+}
+
+function parseLearnedUpdate(raw: unknown): LearnedUpdate | null {
+  if (!isRecord(raw)) return null;
+  switch (raw.action) {
+    case 'editAnswer': {
+      const question = text(raw.question, LIMITS.fieldTextLength);
+      const answer = text(raw.answer, LIMITS.learnedAnswerLength);
+      return question !== null && answer !== null ? { action: 'editAnswer', question, answer } : null;
+    }
+    case 'deleteAnswer': {
+      const question = text(raw.question, LIMITS.fieldTextLength);
+      return question !== null ? { action: 'deleteAnswer', question } : null;
+    }
+    case 'deleteOption': {
+      const optionText = text(raw.optionText, LIMITS.fieldTextLength);
+      return isChoiceKey(raw.key) && optionText !== null ? { action: 'deleteOption', key: raw.key, optionText } : null;
+    }
+    case 'clearAll':
+      return { action: 'clearAll' };
     default:
       return null;
   }

@@ -1,36 +1,47 @@
 import type { FieldCandidate, Profile, ResolvedField } from '../../shared/types';
+import { EMPTY_LEARNED, type LearnedStore } from '../storage/learned-store';
 import { unfillableReason } from './field-rules';
 import { tierAutocomplete } from './tier-autocomplete';
 import { tierDictionary } from './tier-dictionary';
 import { tierFuzzy } from './tier-fuzzy';
+import { tierLearned } from './tier-learned';
 
 /**
  * Tiered field resolver. Each tier is a pure function; the first one that
- * returns a match wins. Runs in the service worker so the future AI tier
- * (which needs network access) is a one-file addition here.
+ * returns a match wins. Tiers are numbered by run order:
+ *
+ *   1 autocomplete   the page's own autocomplete hint
+ *   2 dictionary     word patterns on label / name / question text
+ *   3 learned        answers the user taught for this exact question
+ *   4 fuzzy          word overlap with synonym phrases (a capped-confidence guess)
+ *   5 site adapters  (planned)
+ *   6 AI fallback    (planned, the user's own key only)
+ *
+ * Runs in the service worker so the future AI tier (which needs network
+ * access) is a one-file addition here.
  */
-export type Tier = (field: FieldCandidate, profile: Profile) => ResolvedField | null;
+export type Tier = (field: FieldCandidate, profile: Profile, learned: LearnedStore) => ResolvedField | null;
 
 const TIERS: readonly Tier[] = [
-  tierAutocomplete, // Tier 1
-  tierDictionary, // Tier 2
-  tierFuzzy, // Tier 3: only reached when Tiers 1-2 found nothing
-  // Tiers 4-5 (site adapters, AI fallback) are post-MVP.
+  tierAutocomplete, // 1
+  tierDictionary, // 2
+  (field, _profile, learned) => tierLearned(field, learned), // 3
+  tierFuzzy, // 4
 ];
 
-export function resolveField(field: FieldCandidate, profile: Profile): ResolvedField {
+export function resolveField(field: FieldCandidate, profile: Profile, learned: LearnedStore = EMPTY_LEARNED): ResolvedField {
   const outOfScope = unfillableReason(field);
   if (outOfScope) return unknown(field, outOfScope);
 
   for (const tier of TIERS) {
-    const match = tier(field, profile);
+    const match = tier(field, profile, learned);
     if (match) return match;
   }
   return unknown(field, 'no tier matched');
 }
 
-export function resolveFields(fields: readonly FieldCandidate[], profile: Profile): ResolvedField[] {
-  return fields.map((field) => resolveField(field, profile));
+export function resolveFields(fields: readonly FieldCandidate[], profile: Profile, learned: LearnedStore = EMPTY_LEARNED): ResolvedField[] {
+  return fields.map((field) => resolveField(field, profile, learned));
 }
 
 function unknown(field: FieldCandidate, evidence: string): ResolvedField {

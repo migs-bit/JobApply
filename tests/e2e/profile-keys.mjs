@@ -1,7 +1,7 @@
 // Phase 1 profile keys + dropdown synonym matching: options page, eeo-cases.html
 // (each control declares data-expect-fill), the Lever-style EEO section, and the
 // per-<select> diagnostics. With --live: a real Lever posting with an EEO section.
-import { extensionWithHostAccess, inOverlay, launchChrome, leakedValues, serveFixtures, sleep, Suite, tableAfter, TEST_PROFILE, uniqueUrl } from './lib/harness.mjs';
+import { extensionWithHostAccess, inOverlay, launchChrome, leakedValues, RESULT_ROWS, serveFixtures, sleep, Suite, tableAfter, TEST_PROFILE, uniqueUrl } from './lib/harness.mjs';
 
 const PROFILE = {
   ...TEST_PROFILE,
@@ -60,7 +60,7 @@ export async function run({ devDist, live }) {
       && row('Race').reason === 'no option matched' && row('Race')['available options'].includes('East Asian')
       && row('Gender identity').reason === 'multiple matches' && row('Country of citizenship').reason === 'no matching profile key',
       JSON.stringify(diag.map((r) => [r.field.slice(0, 20), r.status, r.reason || r['matched option']])));
-    const rows = (await inOverlay(browser, fx, 'li')).results;
+    const rows = (await inOverlay(browser, fx, RESULT_ROWS)).results;
     const reviewed = (needle) => rows.find((r) => r.text.includes(needle))?.cls.includes('review');
     suite.check('overlay: EEO, eligibility and salary always flagged for review; notice period not',
       reviewed('gender ·') && reviewed('requiresSponsorship ·') && reviewed('desiredSalary · 90%') && reviewed('noticePeriod · 90%') === false);

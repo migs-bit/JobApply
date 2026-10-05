@@ -2,7 +2,8 @@
 // through CDP's DOM domain (pierce), which the page itself can't do.
 import { join } from 'node:path';
 import {
-  bundleIife, extensionWithHostAccess, inOverlay, launchChrome, leakedValues, overlayPresent, ROOT, serveFixtures, sleep, Suite, TEST_PROFILE, uniqueUrl,
+  bundleIife, clickInOverlay, extensionWithHostAccess, inOverlay, launchChrome, leakedValues, overlayPresent, RESULT_ROWS, ROOT, serveFixtures, sleep, Suite,
+  TEST_PROFILE, UNDO_BUTTON, uniqueUrl,
 } from './lib/harness.mjs';
 
 const HOSTILE_HTML = `<!doctype html><html><head>
@@ -38,7 +39,7 @@ export async function run({ devDist }) {
     suite.check('fill reply', fx.reply?.ok && fx.reply.data.filled === 6 && fx.reply.data.needsReview === 2, JSON.stringify(fx.reply?.data));
     suite.check('overlay host in the page; shadow root closed to page scripts',
       (await overlayPresent(fx)) && (await fx.evaluate(`document.querySelector('job-autofill-overlay').shadowRoot === null`)));
-    const rows = await inOverlay(browser, fx, 'li');
+    const rows = await inOverlay(browser, fx, RESULT_ROWS);
     suite.check('shadow root type is "closed"', rows?.shadowRootType === 'closed');
     suite.check('one row per filled field', rows.results.length === 6, rows.results.map((r) => r.text.slice(0, 20)).join(' | '));
     const ada = rows.results.find((r) => r.text.startsWith('First name'))?.text ?? '';
@@ -49,17 +50,17 @@ export async function run({ devDist }) {
       review.length === 2 && rows.results[0].cls.includes('review') && review.some((r) => r.text.includes('postalCode · 70% · dictionary'))
       && review.some((r) => r.text.includes('phone · 60% · fuzzy')) && outline === 'solid 2px', outline);
     const summary = (await inOverlay(browser, fx, '.summary')).results[0].text;
-    suite.check('summary counts', summary === 'Filled 6 fields · 2 to review · 9 skipped.', summary);
+    suite.check('summary counts', summary === 'Filled 6 fields · 2 to review · 9 skipped · 1 to teach.', summary);
     await sleep(7000);
     suite.check('does not auto-dismiss while something needs review', await overlayPresent(fx));
 
     await fx.evaluate(`(() => { const s = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; s.call(fn, 'Edited by user'); fn.dispatchEvent(new Event('input', { bubbles: true })); })()`);
-    await inOverlay(browser, fx, 'button.action:not(.primary)', 'function(){ this.click(); }');
+    await clickInOverlay(browser, fx, UNDO_BUTTON);
     await sleep(200);
     const after = await fx.evaluate(`({ fn: fn.value, em: em.value, addr: addr.value, country: country.value, zip: zipvis.value, reach: reach.value, ln: ln.value, outline: zipvis.style.outline })`);
     suite.check('Undo restores filled fields, keeps the user’s edit and prefilled values, clears outlines',
       after.fn === 'Edited by user' && after.em === '' && after.addr === '' && after.country === '' && after.zip === '' && after.reach === '' && after.ln === 'Existing' && after.outline === '', JSON.stringify(after));
-    const undone = await inOverlay(browser, fx, '.summary, button.action');
+    const undone = await inOverlay(browser, fx, '.summary, footer button.action');
     suite.check('after Undo: "Restored 5 fields.", Undo hidden', undone.results[0].text === 'Restored 5 fields.' && undone.results[1].hidden === true);
     await inOverlay(browser, fx, 'button.primary', 'function(){ this.click(); }');
     await sleep(100);
@@ -75,16 +76,16 @@ export async function run({ devDist }) {
 
     // ---- all high-confidence → auto-dismiss ----
     const lever = await open('lever-like.html');
-    const leverRows = await inOverlay(browser, lever, 'li');
+    const leverRows = await inOverlay(browser, lever, RESULT_ROWS);
     suite.check('Lever-style: six rows, none to review', leverRows?.results.length === 6 && leverRows.results.every((r) => !r.cls.includes('review')));
     await sleep(7000);
     suite.check('auto-dismisses when everything is high-confidence', !(await overlayPresent(lever)));
 
     // ---- React: failed row; undo resets state ----
     const react = await open('react.html');
-    const reactRows = await inOverlay(browser, react, 'li');
+    const reactRows = await inOverlay(browser, react, RESULT_ROWS);
     suite.check('React: rejected field shown as "Didn’t stick"', reactRows.results.some((r) => r.cls.includes('failed') && r.text.includes("Didn't stick")));
-    await inOverlay(browser, react, 'button.action:not(.primary)', 'function(){ this.click(); }');
+    await clickInOverlay(browser, react, UNDO_BUTTON);
     await sleep(200);
     const st = await react.evaluate('window.__reactState');
     suite.check('React: Undo resets component state', st.first === '' && st.email === '' && st.country === '', JSON.stringify(st));

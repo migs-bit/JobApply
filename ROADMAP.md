@@ -15,11 +15,13 @@ What's planned, what's deferred, and why. Released changes are in [CHANGELOG.md]
 
 Prioritized, not started.
 
-1. **Phase 3: learning system ("Teach this").** Matching against a fixed synonym table will always be inconsistent, because every application system words the same question differently. Let the user teach the right answer once, and reuse it. *Planned, design under review; nothing built yet.*
+1. **Phase 3: learning system ("Teach this").** Matching against a fixed synonym table will always be inconsistent, because every application system words the same question differently. Let the user teach the right answer once, and reuse it. *Built on branch `phase3-learned`, pending manual verification.*
    - **When:** a dropdown or radio group fails to match ("no option matched" / "multiple matches"), or a field resolves to `unknown`. The overlay offers a small **Teach this** action for that field.
    - **What the user does:** picks the right answer once.
    - **What's saved:** `{ normalized question text → chosen answer }`, in `chrome.storage.local`, locked to extension contexts like the profile. Nothing leaves the device.
-   - **How it's used:** a new **learned** tier checks this store after the dictionary and before fuzzy matching, so a taught answer beats a guess but never overrides an explicit dictionary match.
+   - **How it's used:** two maps, two lookup paths.
+     - Answers to custom questions are checked by **Tier 3 (learned)**, after the dictionary and before fuzzy matching (tiers are now numbered by run order). A taught answer beats a guess but never overrides an explicit dictionary match.
+     - Option wordings for known questions (a veteran dropdown worded unusually) are tried by the dropdown and radio fillers after the built-in synonyms.
    - **Managing it:** an options-page section to view, edit and delete learned answers (and delete them all).
    - **Safeguards:** learned answers fill only visible fields like everything else; their text is never logged; sizes and entry counts are capped; the overlay only accepts real clicks (`isTrusted`), so a page can't trigger "Teach" itself.
    - **Out of scope for this phase:** cloud sync, sharing answers between users, and learning without an explicit user action.
@@ -43,7 +45,7 @@ Known, lower priority.
 
 - **Workday multi-page flows:** custom widgets plus step navigation; likely needs a site adapter.
 - **Multi-language forms:** the dictionary, synonyms and choices are English-only.
-- **Site-specific adapters for smaller application systems:** one small file per site, used only where the generic tiers fall short. (They were "Tier 4" in earlier docs; the learned tier changes the numbering, see Phase 3.)
+- **Site-specific adapters for smaller application systems:** one small file per site, used only where the generic tiers fall short. (Tier 5; they were "Tier 4" before the learned tier was added.)
 - **Fuzzy lookup of learned answers:** reuse a taught answer when a question is worded *almost* the same. Phase 3 starts with exact matches on normalized text.
 
 ## Out of scope

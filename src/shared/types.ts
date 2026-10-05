@@ -72,11 +72,17 @@ export interface FieldCandidate {
 }
 
 /** Which resolver tier produced a match; recorded so every fill is explainable. */
-export type ResolverSource = 'autocomplete' | 'dictionary' | 'fuzzy' | 'ai' | 'none';
+export type ResolverSource = 'autocomplete' | 'dictionary' | 'learned' | 'fuzzy' | 'ai' | 'none';
+
+/**
+ * What a field resolves to: a profile key, 'learned' (an answer the user
+ * taught for this exact question, see learned-store.ts), or 'unknown'.
+ */
+export type FillKey = ResolvableKey | 'learned';
 
 export interface ResolvedField {
   fieldId: string;
-  key: ResolvableKey | 'unknown';
+  key: FillKey | 'unknown';
   /** 0..1 */
   confidence: number;
   source: ResolverSource;
@@ -90,7 +96,7 @@ export interface ResolvedField {
 export interface FillInstruction {
   /** Ties the instruction back to its FieldCandidate/ResolvedField (logging, overlay). */
   fieldId: string;
-  key: ResolvableKey;
+  key: FillKey;
   selector: string;
   value: string;
   /**
@@ -98,6 +104,12 @@ export interface FillInstruction {
    * shared/choices.ts). Absent means "match `value` itself".
    */
   optionCandidates?: readonly string[];
+  /**
+   * Dropdowns and radio groups only: option texts the user taught as meaning
+   * this answer (learned option wordings). Tried only after optionCandidates
+   * find nothing.
+   */
+  learnedOptions?: readonly string[];
   confidence: number;
   source: ResolverSource;
   /** True when confidence is below REVIEW_THRESHOLD (or the key is always reviewed). */
@@ -118,7 +130,7 @@ export interface FillPlan {
 /** Outcome of applying one FillInstruction in the page. Never includes a filled text value. */
 export interface FillResult {
   fieldId: string;
-  key: ResolvableKey;
+  key: FillKey;
   selector: string;
   status: 'filled' | 'skipped' | 'failed';
   /** Why a field was skipped or failed. */
@@ -129,7 +141,7 @@ export interface FillResult {
   /** What the field held before filling, so the overlay's Undo (step 9) can restore it. */
   previousValue: string;
   /** Dropdowns and radio groups, for diagnostics: the chosen option's text (null if none) and the options on offer. */
-  choice?: { matched: string | null; options: string[] };
+  choice?: { matched: string | null; options: string[]; viaLearned?: boolean };
 }
 
 /** What the content script reports back to the popup: counts only, never values. */
@@ -144,6 +156,8 @@ export interface FillSummary {
   /** Filled fields below REVIEW_THRESHOLD. */
   needsReview: number;
   failed: number;
+  /** Fields the overlay offers to "Teach this". */
+  teachable: number;
   /** True when the confirmation overlay is on screen; the popup then closes so it doesn't cover it. */
   overlayShown: boolean;
 }
@@ -160,7 +174,25 @@ export type Msg =
   | { type: 'SET_PROFILE'; profile: Profile }
   // The resolver runs in the background so that adding the AI tier later
   // (which needs network access) is a one-file change.
-  | { type: 'RESOLVE_FIELDS'; fields: FieldCandidate[] };
+  | { type: 'RESOLVE_FIELDS'; fields: FieldCandidate[] }
+  // "Teach this" (content script, on a real click). Case 1: an unknown field's
+  // question → the answer the user gave on the page.
+  | { type: 'LEARN_ANSWER'; question: string; answer: string; kind: LearnedKind }
+  // Case 2: a known choice key whose options didn't match → this option text
+  // means the user's saved answer for that key.
+  | { type: 'LEARN_OPTION'; key: ProfileKey; optionText: string }
+  // Options page: view, edit, delete.
+  | { type: 'GET_LEARNED' }
+  | { type: 'UPDATE_LEARNED'; op: LearnedUpdate };
+
+/** How a learned answer was given: typed text, or a chosen option. */
+export type LearnedKind = 'text' | 'choice';
+
+export type LearnedUpdate =
+  | { action: 'editAnswer'; question: string; answer: string }
+  | { action: 'deleteAnswer'; question: string }
+  | { action: 'deleteOption'; key: ProfileKey; optionText: string }
+  | { action: 'clearAll' };
 
 export type MsgType = Msg['type'];
 

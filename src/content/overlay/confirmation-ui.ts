@@ -1,6 +1,7 @@
-import type { ResolvableKey, ResolverSource } from '../../shared/types';
+import type { FillKey, ResolverSource } from '../../shared/types';
 import type { UndoOutcome } from '../filler/dom-filler';
 import { OVERLAY_CSS, REVIEW_OUTLINE } from './overlay-styles';
+import { renderTeachSection, type TeachOutcome, type TeachRow } from './teach-section';
 
 /**
  * Confirmation overlay: a floating panel listing what was filled, with
@@ -16,7 +17,7 @@ import { OVERLAY_CSS, REVIEW_OUTLINE } from './overlay-styles';
 
 export interface OverlayRow {
   label: string;
-  key: ResolvableKey;
+  key: FillKey;
   /** The filled value; empty for failed rows. */
   value: string;
   confidence: number;
@@ -32,6 +33,10 @@ export interface OverlayOptions {
   skipped: number;
   /** Restores filled fields; reports how many were restored and which radio answers must be changed by hand. */
   onUndo: () => UndoOutcome;
+  /** Fields the extension couldn't fill that the user can teach ("Not filled" section). */
+  teachable: TeachRow[];
+  /** Reads the user's answer to that field on the page and remembers it. */
+  onTeach: (fieldId: string) => Promise<TeachOutcome>;
 }
 
 const AUTO_DISMISS_MS = 6000;
@@ -41,7 +46,7 @@ export function closeOverlay(): void {
   current?.close();
 }
 
-export function showOverlay({ rows, skipped, onUndo }: OverlayOptions): void {
+export function showOverlay({ rows, skipped, onUndo, teachable, onTeach }: OverlayOptions): void {
   closeOverlay(); // one panel at a time; a re-fill replaces it
 
   const host = document.createElement('job-autofill-overlay');
@@ -61,7 +66,7 @@ export function showOverlay({ rows, skipped, onUndo }: OverlayOptions): void {
   panel.setAttribute('aria-label', 'Job Autofill results');
 
   const header = el('header');
-  const summary = el('p', 'summary', summaryText(filled.length, review, failed, skipped));
+  const summary = el('p', 'summary', summaryText(filled.length, review, failed, skipped, teachable.length));
   summary.setAttribute('role', 'status');
   header.append(el('h2', '', 'Job Autofill'), summary);
 
@@ -77,7 +82,14 @@ export function showOverlay({ rows, skipped, onUndo }: OverlayOptions): void {
   const footer = el('footer');
   footer.append(undo, close);
 
-  panel.append(header, list, footer);
+  if (filled.length === 0) undo.hidden = true;
+  // Teaching is a deliberate act: once the user starts, the panel stays until they close it.
+  const teachAndStay = (fieldId: string) => {
+    autoDismiss = false;
+    stopTimer();
+    return onTeach(fieldId);
+  };
+  panel.append(header, ...(rows.length ? [list] : []), ...(teachable.length ? [renderTeachSection(teachable, teachAndStay, el)] : []), footer);
   shadow.append(panel);
   document.documentElement.append(host);
 
@@ -99,7 +111,8 @@ export function showOverlay({ rows, skipped, onUndo }: OverlayOptions): void {
 
   // Auto-dismiss only when there's nothing to double-check; pause while the user is on the panel.
   let timer: number | undefined;
-  let autoDismiss = review === 0 && failed === 0;
+  // Auto-dismiss only after a clean fill. A panel that's only offering to teach stays until closed.
+  let autoDismiss = rows.length > 0 && review === 0 && failed === 0;
   const stopTimer = () => window.clearTimeout(timer);
   const startTimer = () => {
     stopTimer();
@@ -113,7 +126,8 @@ export function showOverlay({ rows, skipped, onUndo }: OverlayOptions): void {
     if (current?.close === doClose) current = null;
   }
 
-  undo.addEventListener('click', () => {
+  undo.addEventListener('click', (e) => {
+    if (!e.isTrusted) return; // a page can't trigger Undo with a synthetic click
     autoDismiss = false; // after an undo, the user closes the panel
     stopTimer();
     const { restored, manual } = onUndo();
@@ -167,11 +181,12 @@ function renderRow(row: OverlayRow): HTMLLIElement {
   return li;
 }
 
-function summaryText(filled: number, review: number, failed: number, skipped: number): string {
-  const parts = [`Filled ${filled} field${filled === 1 ? '' : 's'}`];
+function summaryText(filled: number, review: number, failed: number, skipped: number, teachable: number): string {
+  const parts = [filled > 0 ? `Filled ${filled} field${filled === 1 ? '' : 's'}` : 'Nothing new filled'];
   if (review > 0) parts.push(`${review} to review`);
   if (failed > 0) parts.push(`${failed} didn't stick`);
   if (skipped > 0) parts.push(`${skipped} skipped`);
+  if (teachable > 0) parts.push(`${teachable} to teach`);
   return `${parts.join(' · ')}.`;
 }
 

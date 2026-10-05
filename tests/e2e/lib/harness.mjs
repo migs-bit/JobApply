@@ -241,6 +241,25 @@ export async function inOverlay(browser, page, selector, fnDecl = 'function(){ r
   }
   return { shadowRootType: shadow.shadowRootType, results: out };
 }
+/**
+ * A real mouse click (isTrusted) on the index-th node matching `selector` in the
+ * overlay. Teach and Undo ignore synthetic clicks, so tests must click like a user.
+ */
+export async function clickInOverlay(browser, page, selector, index = 0) {
+  const found = await inOverlay(browser, page, selector, `function(){ this.scrollIntoView({ block: 'center' });
+    const b = this.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; }`);
+  const point = found?.results[index];
+  if (!point) return false;
+  for (const type of ['mousePressed', 'mouseReleased']) {
+    await browser.send('Input.dispatchMouseEvent', { type, x: point.x, y: point.y, button: 'left', clickCount: 1 }, page.sessionId);
+  }
+  await sleep(150);
+  return true;
+}
+/** Rows of the main results list (not the "Not filled" teach list). */
+export const RESULT_ROWS = 'section.panel > ul > li';
+export const UNDO_BUTTON = 'footer button.action:not(.primary)';
+
 export const overlayPresent = (page) => page.evaluate(`!!document.querySelector('job-autofill-overlay')`);
 
 /** No secret value appears in any captured console output. Returns the leaked values. */

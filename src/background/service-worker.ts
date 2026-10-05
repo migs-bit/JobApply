@@ -10,6 +10,10 @@
  */
 import { buildFillPlan } from './fill-plan';
 import { isAllowedSender, parseMsg } from './message-guard';
+import {
+  deleteAnswer, deleteOption, editAnswer, EMPTY_LEARNED, getLearned, learnAnswer, learnOption, saveLearned, type LearnedStore,
+  type LearnResult,
+} from './storage/learned-store';
 import { getProfile, restrictStorageToTrustedContexts, saveProfile } from './storage/profile-store';
 import { debug } from '../shared/log';
 import type { Msg, MsgResponse } from '../shared/types';
@@ -55,9 +59,64 @@ async function handle(msg: Msg): Promise<MsgResponse<unknown>> {
         : { ok: false, error: 'Invalid profile', fieldErrors: result.errors };
     }
 
-    case 'RESOLVE_FIELDS':
-      return { ok: true, data: buildFillPlan(msg.fields, await getProfile()) };
+    case 'RESOLVE_FIELDS': {
+      const [profile, learned] = await Promise.all([getProfile(), getLearned()]);
+      return { ok: true, data: buildFillPlan(msg.fields, profile, learned) };
+    }
+
+    // Case 1: an unknown field's question → the answer the user gave on the page.
+    case 'LEARN_ANSWER':
+      return withoutStore(await updateLearned((store) => learnAnswer(store, msg.question, msg.answer, msg.kind)));
+
+    // Case 2: this option text means the user's saved answer for a choice key.
+    case 'LEARN_OPTION': {
+      const code = (await getProfile())[msg.key];
+      return withoutStore(await updateLearned((store) => learnOption(store, msg.key, msg.optionText, code)));
+    }
+
+    case 'GET_LEARNED':
+      return { ok: true, data: await getLearned() };
+
+    case 'UPDATE_LEARNED': {
+      const { op } = msg;
+      return updateLearned((store): LearnResult => {
+        switch (op.action) {
+          case 'editAnswer':
+            return editAnswer(store, op.question, op.answer);
+          case 'deleteAnswer':
+            return { ok: true, store: deleteAnswer(store, op.question), message: 'Deleted.' };
+          case 'deleteOption':
+            return { ok: true, store: deleteOption(store, op.key, op.optionText), message: 'Deleted.' };
+          case 'clearAll':
+            return { ok: true, store: EMPTY_LEARNED, message: 'All learned answers deleted.' };
+        }
+      });
+    }
   }
+}
+
+/**
+ * Read-modify-write of the learned store, one at a time, so two quick
+ * "Teach this" clicks can't overwrite each other.
+ */
+let learnedQueue: Promise<unknown> = Promise.resolve();
+function updateLearned(change: (store: LearnedStore) => LearnResult): Promise<MsgResponse<{ message: string; store: LearnedStore }>> {
+  const run = learnedQueue.then(async (): Promise<MsgResponse<{ message: string; store: LearnedStore }>> => {
+    const result = change(await getLearned());
+    if (!result.ok) return { ok: false, error: result.error };
+    await saveLearned(result.store);
+    return { ok: true, data: { message: result.message, store: result.store } };
+  });
+  learnedQueue = run.catch(() => {});
+  return run;
+}
+
+/**
+ * Replies to "Teach this" go to a content script inside the web page: send the
+ * confirmation only, never the store, which holds every answer the user taught.
+ */
+function withoutStore(res: MsgResponse<{ message: string; store: LearnedStore }>): MsgResponse<{ message: string }> {
+  return res.ok ? { ok: true, data: { message: res.data.message } } : res;
 }
 
 function fail(error: string): MsgResponse<never> {

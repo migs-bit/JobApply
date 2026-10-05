@@ -25,10 +25,13 @@ Fields are matched in order. First match wins. Each tier is more expensive than 
 |---|---|---|---|
 | 1 | `autocomplete` attribute | Free | Always first |
 | 2 | Regex dictionary on label/name/placeholder | Free | If tier 1 misses |
-| 3 | Fuzzy token match against profile keys | Free | If tier 2 misses |
-| 4 | Site-specific adapter (not built yet) | Free | Future |
-| 5 | AI fallback (BYO key) | Optional | Only if tiers 1–4 miss |
-| — | Flag as unknown, show in overlay | Free | Final fallback |
+| 3 | Learned answers ("Teach this"), exact question match | Free | If tier 2 misses |
+| 4 | Fuzzy token match against profile keys | Free | If tier 3 misses |
+| 5 | Site-specific adapter (not built yet) | Free | Future |
+| 6 | AI fallback (BYO key) | Optional | Only if tiers 1–5 miss |
+| — | Flag as unknown, offer "Teach this" in the overlay | Free | Final fallback |
+
+Tiers are numbered by run order. Dropdown and radio options that don't match the built-in synonyms are a separate path: option wordings the user taught are tried by the filler before it reports "no option matched".
 
 ## Why these choices (non-standard decisions explained)
 
@@ -46,7 +49,7 @@ A backend means infrastructure cost, a privacy surface, and a billing model. The
 
 ### Why tiered resolution instead of one smart matcher?
 
-- **Fast:** 90% of fields never need tier 3+
+- **Fast:** 90% of fields never need tier 3+ (learned, then fuzzy)
 - **Cheap:** AI only fires on weird fields
 - **Debuggable:** you can trace *why* a field matched
 - **Testable:** deterministic for the common case
@@ -60,7 +63,7 @@ Because field labels are surprisingly stable. "First name", "Email", "Phone", "L
 
 Native `<select>` options vary by site. One site says "Male", another says "Man", another says "M". The profile stores a canonical value (`male`) and the code maps it to whatever the option text actually says. Exact-match alone fails constantly.
 
-### Why fuzzy matching (tier 3) if the dictionary exists?
+### Why fuzzy matching (tier 4) if the dictionary exists?
 
 For weirdly-worded forms: "What should we call you?" → first name. "Best number to reach you" → phone. The dictionary can't anticipate every phrasing. Fuzzy catches the long tail without needing AI.
 

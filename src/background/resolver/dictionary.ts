@@ -116,7 +116,7 @@ export const AUTOCOMPLETE_MAP: Readonly<Record<string, ResolvableKey>> = {
 };
 
 /**
- * Tier 3 synonym phrases, compared by token-set similarity (tier-fuzzy.ts).
+ * Tier 4 synonym phrases, compared by token-set similarity (tier-fuzzy.ts).
  * They're for wordings the regexes above miss ("Best number to reach you",
  * "Electronic mail address"). Phrases are tokenized the same way as field
  * text: stopwords like "what/you/to/the" dropped, so "call you" is just {call}.

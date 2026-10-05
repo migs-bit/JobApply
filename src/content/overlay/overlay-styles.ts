@@ -50,6 +50,24 @@ li + li { border-top: 1px solid var(--border); }
 .failed .badge, .failed .meta { color: var(--error); border-color: var(--error); }
 .undone { opacity: 0.55; }
 
+.teach { border-top: 1px solid var(--border); padding: 8px 14px 4px; overflow-y: auto; }
+.teach-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 4px; }
+.teach h3 { margin: 0; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
+.teach ul { padding: 0; }
+.teach-row { display: grid; grid-template-columns: auto 1fr auto; gap: 2px 8px; align-items: start; padding: 6px 0; border: 0; }
+.teach-include { margin: 3px 0 0; accent-color: var(--accent); }
+.teach-tally { margin: 0; font-size: 12px; color: var(--text); }
+.teach-tally:empty { display: none; }
+button.teach-all { padding: 2px 10px; font-size: 12px; background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+button.teach-all:disabled { opacity: 0.6; cursor: default; }
+.teach-row + .teach-row { border-top: 1px solid var(--border); }
+.teach-status { grid-column: 2 / -1; color: var(--muted); font-size: 12px; }
+.teach-row.taught .teach-status { color: var(--text); }
+.teach-row.teach-error .teach-status { color: var(--error); }
+button.teach-button { padding: 2px 10px; font-size: 12px; align-self: start; }
+button.teach-button:disabled { opacity: 0.6; cursor: default; }
+button.more { margin: 4px 0 6px; padding: 2px 10px; font-size: 12px; }
+
 footer { display: flex; gap: 8px; justify-content: flex-end; padding: 10px 14px; border-top: 1px solid var(--border); }
 button.action {
   all: unset; box-sizing: border-box; padding: 6px 14px; border-radius: 6px; font-weight: 600; cursor: pointer;

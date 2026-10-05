@@ -6,6 +6,13 @@ All notable changes. The format follows [Keep a Changelog](https://keepachangelo
 
 ### Added
 
+- **"Teach this" (learning system).** Fields the extension couldn't fill are listed under "Not filled" in the panel. Answer one on the page, click Teach this, and it's remembered:
+  - **Custom questions:** remembered as question → answer, used by a new resolver **Tier 3 (learned)**, at 0.85 confidence.
+  - **Known questions whose dropdown or radio options didn't match:** remembered as option text → your saved answer, tried by the fillers after the built-in synonyms. Diagnostics show "via learned".
+  - **Teach all:** teaches every ticked row on show in one click. Untick a row to leave it out; unanswered rows are skipped with a reminder.
+  - **Managing them:** an options-page **Learned answers** section to edit, delete, or delete all.
+  - **Privacy:** stored locally with no site or URL, never logged, never sent to the page as a whole. Teach and Undo only respond to real clicks.
+
 - **Radio button support.**
   - **One question per group:** radios sharing a name are one question, matched on the group's question text (a fieldset legend, a radiogroup label, or the text around it), never on a lone "Yes"/"No".
   - **Which questions:** only work-eligibility and EEO keys can be answered by a radio group.
@@ -24,6 +31,9 @@ All notable changes. The format follows [Keep a Changelog](https://keepachangelo
 - **Build:** `scripts/build.mjs --out=<dir>`, which builds somewhere other than `dist/`.
 
 ### Changed
+
+- **Tiers are numbered by run order:** 1 autocomplete, 2 dictionary, 3 learned, 4 fuzzy, 5 site adapters (planned), 6 AI (planned).
+- **The panel now also appears when nothing was filled but something can be taught.** It doesn't auto-close in that case.
 
 - **Undo for radio answers:** the answer stays in place and the panel says to change it on the page. A programmatic clear would leave React-style forms submitting the old answer while the page shows none. When a radio was selected before, Undo clicks it again.
 - **The overlay shows the option actually chosen** for dropdowns and radios ("I am not a veteran"), not the generic answer label.

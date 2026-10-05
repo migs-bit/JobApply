@@ -91,6 +91,8 @@ export function logChoiceDiagnostics(fields: FieldCandidate[], plan: FillPlan, r
       // A result means a fill was attempted; otherwise say why none was.
       reason: result ? (result.reason ?? '') : key === 'unknown' ? 'no matching profile key' : 'nothing saved for this key',
       'matched option': result?.choice?.matched ?? (result ? 'no option matched' : ''),
+      // True when the match came from an option wording the user taught (learned-store.ts, case 2).
+      'via learned': result?.choice?.viaLearned === true,
       'available options': (result?.choice?.options ?? fallbackOptions).join(' | '),
     };
   };

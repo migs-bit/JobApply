@@ -19,6 +19,7 @@ import type { FieldCandidate, FillPlan, FillResult, FillSummary, MsgResponse } f
 import { labelOf, logChoiceDiagnostics, logFill, logResolutions, logScan } from './diagnostics';
 import { applyFill, undoFill } from './filler/dom-filler';
 import { showOverlay, type OverlayRow } from './overlay/confirmation-ui';
+import { teach, teachableFields } from './teach';
 import { scanFields } from './scanner/dom-scanner';
 
 const EXTENSION_PAGE_PREFIX = chrome.runtime.getURL('');
@@ -36,6 +37,7 @@ async function fillPage(): Promise<FillSummary> {
     filled: 0,
     needsReview: 0,
     failed: 0,
+    teachable: 0,
     overlayShown: false,
   };
   if (fields.length === 0) return empty;
@@ -47,7 +49,7 @@ async function fillPage(): Promise<FillSummary> {
   const results = await applyFill(res.data.instructions);
   logFill(fields, results);
   logChoiceDiagnostics(fields, res.data, results);
-  const overlayShown = presentResults(fields, res.data, results);
+  const { overlayShown, teachable } = presentResults(fields, res.data, results);
 
   const filled = results.filter((r) => r.status === 'filled');
   return {
@@ -57,15 +59,16 @@ async function fillPage(): Promise<FillSummary> {
     filled: filled.length,
     needsReview: filled.filter((r) => r.requiresReview).length,
     failed: results.filter((r) => r.status === 'failed').length,
+    teachable,
     overlayShown,
   };
 }
 
 /**
- * Shows the overlay for anything filled or failed, and returns whether it did.
- * Skipped-only runs are left to the popup's status line.
+ * Shows the overlay for anything filled, failed, or teachable, and reports
+ * whether it did. Runs with none of those are left to the popup's status line.
  */
-function presentResults(fields: FieldCandidate[], plan: FillPlan, results: FillResult[]): boolean {
+function presentResults(fields: FieldCandidate[], plan: FillPlan, results: FillResult[]): { overlayShown: boolean; teachable: number } {
   const values = new Map(plan.instructions.map((i) => [i.fieldId, i.value]));
   const rows: OverlayRow[] = results
     .filter((r) => r.status !== 'skipped')
@@ -81,13 +84,20 @@ function presentResults(fields: FieldCandidate[], plan: FillPlan, results: FillR
       ...(r.reason ? { reason: r.reason } : {}),
       selector: r.selector,
     }));
-  if (rows.length === 0) return false;
+  const teachable = teachableFields(fields, plan, results);
+  if (rows.length === 0 && teachable.length === 0) return { overlayShown: false, teachable: 0 };
+  const byField = new Map(teachable.map((t) => [t.row.fieldId, t]));
   showOverlay({
     rows,
     skipped: results.filter((r) => r.status === 'skipped').length,
     onUndo: () => undoFill(results),
+    teachable: teachable.map((t) => t.row),
+    onTeach: async (fieldId) => {
+      const item = byField.get(fieldId);
+      return item ? teach(item) : { ok: false, message: 'That field is no longer on the page.' };
+    },
   });
-  return true;
+  return { overlayShown: true, teachable: teachable.length };
 }
 
 // ---------------------------------------------------------------------------

@@ -4,7 +4,8 @@
 // review highlighting, and, with --live, a real Lever form's radio questions.
 import { join } from 'node:path';
 import {
-  bundleIife, extensionWithHostAccess, inOverlay, launchChrome, leakedValues, overlayPresent, ROOT, serveFixtures, sleep, Suite, tableAfter, TEST_PROFILE, uniqueUrl,
+  bundleIife, clickInOverlay, extensionWithHostAccess, inOverlay, launchChrome, leakedValues, overlayPresent, RESULT_ROWS, ROOT, serveFixtures, sleep, Suite,
+  tableAfter, TEST_PROFILE, UNDO_BUTTON, uniqueUrl,
 } from './lib/harness.mjs';
 
 const PROFILE = {
@@ -57,17 +58,17 @@ export async function run({ devDist, live }) {
       && groups.find((g) => g.name === 'dis_q')?.['available options'] === 'Yes, I have a disability | No, I do not have a disability',
       `${groups.length} rows`);
 
-    const rows = (await inOverlay(browser, fx, 'li')).results;
+    const rows = (await inOverlay(browser, fx, RESULT_ROWS)).results;
     suite.check('overlay: every radio answer flagged for review (all are sensitive keys); shows the chosen option',
       rows.length === 5 && rows.every((r) => r.cls.includes('review')) && rows.some((r) => r.text.includes('Asian (Not Hispanic or Latino)')), rows.map((r) => r.text.slice(0, 30)).join(' | '));
     await sleep(7000);
     suite.check('overlay does not auto-dismiss (answers need review)', await overlayPresent(fx));
 
-    await inOverlay(browser, fx, 'button.action:not(.primary)', 'function(){ this.click(); }');
+    await clickInOverlay(browser, fx, UNDO_BUTTON);
     await sleep(200);
     const afterUndo = await fx.evaluate(CHECKED);
     const undoSummary = (await inOverlay(browser, fx, '.summary')).results[0].text;
-    const dimmed = (await inOverlay(browser, fx, 'li')).results.filter((r) => r.cls.includes('undone')).length;
+    const dimmed = (await inOverlay(browser, fx, RESULT_ROWS)).results.filter((r) => r.cls.includes('undone')).length;
     suite.check('Undo leaves radio answers in place (a programmatic clear would desync React state) and says to change them by hand',
       afterUndo.auth === 'Yes' && afterUndo.gender_q === 'Female' && afterUndo.ca_q === 'No' && dimmed === 0
       && undoSummary === "Restored 0 fields. 5 radio answers can't be cleared automatically: change them on the page.", undoSummary);
@@ -77,7 +78,7 @@ export async function run({ devDist, live }) {
     pages.push(fx2);
     await browser.injectAndFill(ext, fx2.url);
     await fx2.evaluate(`document.querySelector('input[name=auth][value=no]').click()`);
-    await inOverlay(browser, fx2, 'button.action:not(.primary)', 'function(){ this.click(); }');
+    await clickInOverlay(browser, fx2, UNDO_BUTTON);
     await sleep(200);
     const userKept = await fx2.evaluate(CHECKED);
     const keptSummary = (await inOverlay(browser, fx2, '.summary')).results[0].text;
@@ -92,7 +93,7 @@ export async function run({ devDist, live }) {
     suite.check('React: the click updates component state (not just the DOM)', state?.auth === 'Yes' && (await react.evaluate(CHECKED)).auth === 'Yes', JSON.stringify(state));
     const refused = reactRows.find((r) => r.name === 'sponsor');
     suite.check('React: a group that refuses the click is reported "failed: page reverted"', refused?.status === 'failed' && refused?.reason === 'page reverted', JSON.stringify(refused));
-    await inOverlay(browser, react, 'button.action:not(.primary)', 'function(){ this.click(); }');
+    await clickInOverlay(browser, react, UNDO_BUTTON);
     await sleep(200);
     const reactUndo = { dom: (await react.evaluate(CHECKED)).auth, state: (await react.evaluate('window.__radioState')).auth };
     suite.check('React: after Undo, what the page shows still matches component state', reactUndo.dom === reactUndo.state, JSON.stringify(reactUndo));

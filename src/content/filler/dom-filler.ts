@@ -1,6 +1,6 @@
 import type { FillInstruction, FillResult } from '../../shared/types';
 import { makeResult, querySafely } from './fill-result';
-import { matchOption, optionTexts } from './option-match';
+import { matchChoice, optionTexts } from './option-match';
 import { isRadio, RADIO_SETTLE_MS, startRadioFill, undoRadio } from './radio-filler';
 import { isVisibleToUser } from './visibility';
 
@@ -83,9 +83,9 @@ function fillOne(instruction: FillInstruction, doc: Document): FillResult {
   let value = instruction.value;
   if (el instanceof HTMLSelectElement) {
     const options = Array.from(el.options);
-    const match = matchOption(options, instruction.optionCandidates ?? [instruction.value]);
+    const match = matchChoice(options, instruction.optionCandidates ?? [instruction.value], instruction.learnedOptions);
     if ('reason' in match) return result('skipped', previousValue, match.reason);
-    if (choice) choice.matched = match.matched;
+    if (choice) Object.assign(choice, { matched: match.matched, ...(match.viaLearned ? { viaLearned: true } : {}) });
     value = options[match.index]?.value ?? '';
   } else if (el.maxLength >= 0 && value.length > el.maxLength) {
     // Truncating would silently submit wrong data (a cut-off email, a partial URL).

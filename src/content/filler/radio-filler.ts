@@ -1,7 +1,7 @@
 import type { FillInstruction, FillResult } from '../../shared/types';
 import { radioOptionLabel } from '../scanner/radio-group';
 import { makeResult, querySafely } from './fill-result';
-import { matchOption, optionTexts } from './option-match';
+import { matchChoice, optionTexts } from './option-match';
 import { isRadioVisibleToUser } from './visibility';
 
 /**
@@ -53,11 +53,12 @@ export function startRadioFill(instruction: FillInstruction, doc: Document): Fil
   // Never change an answer that's already there, whoever chose it.
   if (current) return skip('already has a value');
 
-  const match = matchOption(options, instruction.optionCandidates ?? [instruction.value]);
+  const match = matchChoice(options, instruction.optionCandidates ?? [instruction.value], instruction.learnedOptions);
   if ('reason' in match) return skip(match.reason);
   const target = group[match.index];
   if (!target) return skip('no option matched');
   choice.matched = match.matched;
+  if (match.viaLearned) choice.viaLearned = true;
 
   target.click();
   return () => {

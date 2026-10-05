@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Teach this cases</title>
+    <style>
+      body { font: 15px/1.5 system-ui, sans-serif; max-width: 640px; margin: 32px auto; padding: 0 16px; }
+      .case, fieldset { margin: 0 0 16px; }
+      label, legend { display: block; font-weight: 600; }
+      input[type='text'], select, textarea { width: 100%; padding: 6px; font: inherit; box-sizing: border-box; }
+    </style>
+  </head>
+  <body>
+    <h1>Teach this cases</h1>
+    <p>
+      Save Veteran status "I am not a protected veteran". Every field here starts unfilled. <code>data-teach</code>
+      marks what the "Not filled" list should offer: <code>option</code> (a known question whose options didn't
+      match), <code>question</code> (a custom question), or <code>none</code>.
+    </p>
+    <form>
+      <!-- Case 2: known key (veteranStatus), wording the built-in synonyms don't know -->
+      <div class="case">
+        <label for="vet">Veteran status</label>
+        <select id="vet" name="veteran_q" data-teach="option">
+          <option value="">Select…</option>
+          <option>No, I'm not a veteran</option>
+          <option>Yes, I served in the military</option>
+          <option>I'd rather not say</option>
+        </select>
+      </div>
+
+      <!-- Case 1: custom questions -->
+      <div class="case"><label for="hear">How did you hear about us?</label><input id="hear" name="hear" type="text" data-teach="question" /></div>
+      <div class="case">
+        <label for="arr">Preferred work arrangement</label>
+        <select id="arr" name="arrangement" data-teach="question"><option value="">Select…</option><option>Remote</option><option>Hybrid</option><option>On-site</option></select>
+      </div>
+      <fieldset>
+        <legend>Are you open to contract roles?</legend>
+        <label><input type="radio" name="contract" value="yes" data-teach="question" /> Yes</label>
+        <label><input type="radio" name="contract" value="no" /> No</label>
+      </fieldset>
+      <div class="case"><label for="proj">Tell us about a project you're proud of</label><textarea id="proj" name="project" data-teach="question"></textarea></div>
+
+      <!-- Never offered -->
+      <div class="case"><label><input type="checkbox" name="subscribe" data-teach="none" /> Subscribe to updates</label></div>
+      <div class="case" style="opacity: 0"><label for="ref">Referral code</label><input id="ref" name="referral" type="text" data-teach="none" /></div>
+    </form>
+  </body>
+</html>

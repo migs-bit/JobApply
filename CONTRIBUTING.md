@@ -50,14 +50,22 @@ Field matching lives in `src/background/resolver/dictionary.ts`.
 - **`KEY_EXCLUSIONS`:** wording where a key's word means something else ("please *state*", "*current* salary", "relocation *assistance*").
 - **`PROSE_KEYS`:** keys whose patterns are specific enough to match long question text around a field.
 - **`NEGATIVE_CONTEXT`:** "someone else's details" (referrer, company…). Question keys are exempt.
-- **`FUZZY_SYNONYMS`** (Tier 3): phrases for word-overlap matching. Keep them specific; a bare "url" or "name" re-creates false positives.
+- **`FUZZY_SYNONYMS`** (Tier 4): phrases for word-overlap matching. Keep them specific; a bare "url" or "name" re-creates false positives.
 - **`AUTOCOMPLETE_MAP`** (Tier 1): browser-standard `autocomplete` tokens.
 
 Every change needs unit tests in `tests/resolver.test.ts` (or `fuzzy.test.ts` / `profile-keys.test.ts`), with both the case it fixes and a case it must *not* match.
 
+## Learned answers ("Teach this")
+
+`src/background/storage/learned-store.ts` holds two maps with two lookup paths. Keep them separate:
+- **`answers`** (question → answer): read by resolver Tier 3, `src/background/resolver/tier-learned.ts`.
+- **`optionSynonyms`** (key → option text → choice code): sent as `learnedOptions` by `fill-plan.ts`, and tried by the dropdown and radio fillers through `matchChoice` in `src/content/filler/option-match.ts`.
+
+Learned text must never be logged, and the full store must never go to a content script. Only the options page reads it (`GET_LEARNED`).
+
 ## Add a site adapter (planned)
 
-Site adapters (Tier 4) don't exist yet; see [ROADMAP.md](ROADMAP.md). The intended shape, so early work stays consistent:
+Site adapters (Tier 5) don't exist yet; see [ROADMAP.md](ROADMAP.md). The intended shape, so early work stays consistent:
 
 - **One file per site** in `src/background/resolver/adapters/<site>.ts`, exporting a pure tier function: `(field: FieldCandidate, profile: Profile) => ResolvedField | null`.
 - **Running order:** adapters run in `TIERS` in `src/background/resolver/field-resolver.ts`, only for their site, and only where the generic tiers fall short.
