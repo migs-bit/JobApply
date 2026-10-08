@@ -7,10 +7,15 @@ What's planned, what's deferred, and why. Released changes are in [CHANGELOG.md]
 - **Phase 1:** the expanded profile (salary, notice period, work eligibility, EEO) and native `<select>` filling with synonym matching.
 - **Phase 2: radio buttons.** Each group is one question, matched on its question text, answered with a real `.click()` and re-checked after 100 ms.
 - **Phase 3: learning system ("Teach this").** Details below, under Next, kept for the design record.
-- **Phase 4: resume upload.** Built on branch `phase4-resume`, pending manual verification and merge.
+- **Phase 4: resume upload.** Verified manually and merged into `main`.
   - One PDF/DOCX resume (5 MB max), stored in `chrome.storage.local` with the profile's access level; IndexedDB wasn't needed (5 MB is ~6.7 MB as base64, inside the 10 MB quota).
   - Plain text extracted once at upload with PDF.js and mammoth, capped at 20,000 characters, for Phase 7.
   - Attached to `type="file"` inputs that resolve to the new `resume` key, through `DataTransfer` plus `input`/`change`, verified after 100 ms. Always reviewed, never auto-dismissed.
+- **Robust fill fix.** Verified manually and merged into `main`. Fixes fields that showed a value but submitted blank.
+  - Text fields and dropdowns get a full user-like event sequence: focus, value set, key and input events, change, blur. That includes explicit `focusin`/`focusout`, which React's `onFocus`/`onBlur` need and which `element.focus()`/`blur()` don't fire while the popup holds focus.
+  - Dropdowns set `option.selected`, `selectedIndex` and `value` together.
+  - A verification pass re-reads every filled field (text, dropdown, radio, file) 200 ms after filling; anything the page changed back is reported as "page reverted", in yellow, and the panel stays open.
+  - The sequence and why it matters: [CONTRIBUTING.md](CONTRIBUTING.md#fill-event-sequence).
 
 ## Next
 
