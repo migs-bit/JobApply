@@ -1,6 +1,7 @@
 import { CHOICES } from '../shared/choices';
 import { LIMITS } from '../shared/constants';
 import { sanitizeProfile } from '../shared/profile-validation';
+import { MAX_RESUME_BASE64_LENGTH } from '../shared/resume-validation';
 import type { FieldCandidate, LearnedUpdate, Msg, MsgType, ProfileKey } from '../shared/types';
 
 /**
@@ -24,6 +25,10 @@ const ALLOWED_SENDERS: Record<MsgType, 'extension-page' | 'content-script'> = {
   // Learned answers are only ever listed or edited by our own options page.
   GET_LEARNED: 'extension-page',
   UPDATE_LEARNED: 'extension-page',
+  // The resume is uploaded, viewed and removed only on our own options page.
+  SET_RESUME: 'extension-page',
+  GET_RESUME: 'extension-page',
+  DELETE_RESUME: 'extension-page',
 };
 
 export function isAllowedSender(type: MsgType, sender: chrome.runtime.MessageSender): boolean {
@@ -79,6 +84,18 @@ export function parseMsg(raw: unknown): Msg | null {
       const op = parseLearnedUpdate(raw.op);
       return op ? { type: 'UPDATE_LEARNED', op } : null;
     }
+    case 'SET_RESUME': {
+      // Content checks (type, real size, file signature) happen in resume-store on the decoded bytes.
+      const filename = text(raw.filename, LIMITS.fieldTextLength);
+      const base64 = text(raw.base64, MAX_RESUME_BASE64_LENGTH);
+      const extractedText = text(raw.extractedText, LIMITS.resumeTextLength);
+      if (filename === null || base64 === null || extractedText === null) return null;
+      return { type: 'SET_RESUME', filename, base64, extractedText };
+    }
+    case 'GET_RESUME':
+      return { type: 'GET_RESUME' };
+    case 'DELETE_RESUME':
+      return { type: 'DELETE_RESUME' };
     default:
       return null;
   }

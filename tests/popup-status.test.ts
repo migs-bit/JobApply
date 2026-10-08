@@ -12,6 +12,8 @@ const summary = (s: Partial<FillSummary>): FillSummary => ({
   failed: 0,
   teachable: 0,
   overlayShown: false,
+  resumeAttached: false,
+  resumeMissing: false,
   ...s,
 });
 

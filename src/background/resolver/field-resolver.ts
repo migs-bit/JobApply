@@ -35,9 +35,12 @@ export function resolveField(field: FieldCandidate, profile: Profile, learned: L
 
   for (const tier of TIERS) {
     const match = tier(field, profile, learned);
-    if (match) return match;
+    if (!match) continue;
+    // A file input takes the resume or nothing: never a learned text answer or a profile value.
+    if (field.type === 'file' && match.key !== 'resume') return unknown(field, 'file inputs only take your resume');
+    return match;
   }
-  return unknown(field, 'no tier matched');
+  return unknown(field, field.type === 'file' ? 'not a resume field' : 'no tier matched');
 }
 
 export function resolveFields(fields: readonly FieldCandidate[], profile: Profile, learned: LearnedStore = EMPTY_LEARNED): ResolvedField[] {

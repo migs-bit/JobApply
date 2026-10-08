@@ -62,6 +62,7 @@ export const ALWAYS_REVIEW_KEYS: ReadonlySet<ProfileKey> = new Set([
 export const STORAGE_KEYS = {
   profile: 'profile',
   learned: 'learned',
+  resume: 'resume',
 } as const;
 
 /**
@@ -84,6 +85,12 @@ export const LIMITS = {
   learnedEntries: 500,
   /** Max characters of a learned answer (long enough for a short paragraph). */
   learnedAnswerLength: 2000,
+  /** Max resume file size in bytes (5 MB). Its base64 form (~6.7 MB) fits chrome.storage.local's 10 MB. */
+  resumeBytes: 5 * 1024 * 1024,
+  /** Max characters of extracted resume text kept (context for the planned AI tier). */
+  resumeTextLength: 20_000,
+  /** Max characters of a resume filename. */
+  resumeFilenameLength: 200,
 } as const;
 
 /** Confidence assigned by each resolver tier (see Brief.md). */

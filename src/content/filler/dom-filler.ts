@@ -1,12 +1,13 @@
-import type { FillInstruction, FillResult } from '../../shared/types';
+import type { FillInstruction, FillResult, ResumeFile } from '../../shared/types';
 import { makeResult, querySafely } from './fill-result';
+import { FILE_SETTLE_MS, isFileInput, startFileFill, undoFile } from './file-filler';
 import { matchChoice, optionTexts } from './option-match';
 import { isRadio, RADIO_SETTLE_MS, startRadioFill, undoRadio } from './radio-filler';
 import { isVisibleToUser } from './visibility';
 
 /**
  * Writes profile values into the page: text fields and dropdowns here, radio
- * groups in radio-filler.ts.
+ * groups in radio-filler.ts, the resume in file-filler.ts.
  *
  * Every target is re-checked at fill time, not trusted from the scan: the
  * page can change between scanning and filling (the service-worker round
@@ -50,14 +51,25 @@ export function setNativeValue(el: Fillable, value: string): void {
 }
 
 /**
- * Applies every instruction. Radio groups are clicked first and verified
- * together after one short settle, so ten groups cost one wait, not ten.
+ * Applies every instruction. Radio groups and file inputs are set first and
+ * verified together after one short settle, so ten of them cost one wait,
+ * not ten. `resume` is the plan's file, for instructions keyed `resume`.
  */
-export async function applyFill(instructions: readonly FillInstruction[], doc: Document = document): Promise<FillResult[]> {
-  const pending = instructions.map((instruction) =>
-    isRadio(querySafely(doc, instruction.selector)) ? startRadioFill(instruction, doc) : fillOne(instruction, doc),
-  );
-  if (pending.some((p) => typeof p === 'function')) await new Promise((r) => setTimeout(r, RADIO_SETTLE_MS));
+export async function applyFill(
+  instructions: readonly FillInstruction[],
+  doc: Document = document,
+  resume?: ResumeFile,
+): Promise<FillResult[]> {
+  const pending = instructions.map((instruction) => {
+    const el = querySafely(doc, instruction.selector);
+    if (isRadio(el)) return startRadioFill(instruction, doc);
+    // Resume instructions go to the file filler even if the target changed, so its guards report why.
+    if (isFileInput(el) || instruction.key === 'resume') return startFileFill(instruction, resume, doc);
+    return fillOne(instruction, doc);
+  });
+  if (pending.some((p) => typeof p === 'function')) {
+    await new Promise((r) => setTimeout(r, Math.max(RADIO_SETTLE_MS, FILE_SETTLE_MS)));
+  }
   return pending.map((p) => (typeof p === 'function' ? p() : p));
 }
 
@@ -121,6 +133,10 @@ export function undoFill(results: readonly FillResult[], doc: Document = documen
       const outcome = undoRadio(r, doc);
       if (outcome === 'restored') restored++;
       if (outcome === 'manual') manual.push(r.selector);
+      continue;
+    }
+    if (isFileInput(el)) {
+      if (undoFile(r, doc)) restored++;
       continue;
     }
     const record = el ? applied.get(el) : undefined;

@@ -1,7 +1,7 @@
 import { choiceFor } from '../shared/choices';
 import { ALWAYS_REVIEW_KEYS, REVIEW_THRESHOLD } from '../shared/constants';
 import { normalizeQuestion, questionTextOf } from '../shared/question';
-import type { FieldCandidate, FillInstruction, FillPlan, Profile, ResolvableKey } from '../shared/types';
+import type { FieldCandidate, FillInstruction, FillPlan, Profile, ResolvableKey, ResumeFile } from '../shared/types';
 import { resolveFields } from './resolver/field-resolver';
 import { EMPTY_LEARNED, learnedOptionsFor, type LearnedStore } from './storage/learned-store';
 
@@ -11,8 +11,17 @@ import { EMPTY_LEARNED, learnedOptionsFor, type LearnedStore } from './storage/l
  * directly. Values come from the profile, or for 'learned' fields from the
  * user's taught answers (case 1). Learned option wordings (case 2) ride along
  * as `learnedOptions`, limited to the user's saved answer for that key.
+ *
+ * Resume fields always get an instruction (value: the filename, or '' when
+ * none is uploaded, so the filler can report "no resume uploaded"). The file
+ * itself is attached to the plan once, and only if some field needs it.
  */
-export function buildFillPlan(fields: readonly FieldCandidate[], profile: Profile, learned: LearnedStore = EMPTY_LEARNED): FillPlan {
+export function buildFillPlan(
+  fields: readonly FieldCandidate[],
+  profile: Profile,
+  learned: LearnedStore = EMPTY_LEARNED,
+  resume: ResumeFile | null = null,
+): FillPlan {
   const resolutions = resolveFields(fields, profile, learned);
   const byId = new Map(fields.map((f) => [f.id, f]));
 
@@ -39,6 +48,12 @@ export function buildFillPlan(fields: readonly FieldCandidate[], profile: Profil
       continue;
     }
 
+    if (r.key === 'resume') {
+      // A file upload is always shown for review, however sure the match.
+      instructions.push({ ...base, key: 'resume', value: resume?.filename ?? '', requiresReview: true });
+      continue;
+    }
+
     const saved = profileValue(r.key, profile);
     if (!saved) continue; // nothing saved for this key: send nothing
 
@@ -57,11 +72,13 @@ export function buildFillPlan(fields: readonly FieldCandidate[], profile: Profil
     };
     instructions.push(instruction);
   }
-  return { resolutions, instructions };
+  const needsResume = resume !== null && instructions.some((i) => i.key === 'resume');
+  return { resolutions, instructions, ...(needsResume ? { resume } : {}) };
 }
 
 /** The value to fill for a key; empty string means "don't fill". */
 export function profileValue(key: ResolvableKey, profile: Profile): string {
+  if (key === 'resume') return ''; // a file, not a profile value (see above)
   if (key === 'fullName') {
     // A lone first name in a "Full name" field reads as a mistake, so require both.
     return profile.firstName && profile.lastName ? `${profile.firstName} ${profile.lastName}` : '';

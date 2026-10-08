@@ -42,8 +42,14 @@ export type ProfileKey = keyof Profile;
  */
 export type DerivedKey = 'fullName';
 
+/**
+ * Keys filled with a stored file instead of text. Only `<input type="file">`
+ * fields can resolve to them (see field-rules.ts).
+ */
+export type FileKey = 'resume';
+
 /** Everything the resolver can map a field to. */
-export type ResolvableKey = ProfileKey | DerivedKey;
+export type ResolvableKey = ProfileKey | DerivedKey | FileKey;
 
 /**
  * One fillable field, as extracted by the DOM scanner. A radio group (several
@@ -125,6 +131,31 @@ export interface FillInstruction {
 export interface FillPlan {
   resolutions: ResolvedField[];
   instructions: FillInstruction[];
+  /**
+   * The stored resume's bytes, present only when a field resolved to `resume`
+   * and a resume is uploaded. Sent once per plan, however many resume fields
+   * the page has. Never logged.
+   */
+  resume?: ResumeFile;
+}
+
+/** The part of the stored resume a content script needs to attach it. */
+export interface ResumeFile {
+  filename: string;
+  mimeType: string;
+  base64: string;
+  uploadedAt: number;
+}
+
+/** What the options page shows about the stored resume: never the bytes or the text itself. */
+export interface ResumeSummary {
+  filename: string;
+  mimeType: string;
+  /** Bytes. */
+  size: number;
+  uploadedAt: number;
+  /** Words in the extracted text; 0 when extraction failed or found no text. */
+  wordCount: number;
 }
 
 /** Outcome of applying one FillInstruction in the page. Never includes a filled text value. */
@@ -142,6 +173,8 @@ export interface FillResult {
   previousValue: string;
   /** Dropdowns and radio groups, for diagnostics: the chosen option's text (null if none) and the options on offer. */
   choice?: { matched: string | null; options: string[]; viaLearned?: boolean };
+  /** File inputs: the name of the file attached (a filename only, never a path). */
+  attached?: string;
 }
 
 /** What the content script reports back to the popup: counts only, never values. */
@@ -160,6 +193,10 @@ export interface FillSummary {
   teachable: number;
   /** True when the confirmation overlay is on screen; the popup then closes so it doesn't cover it. */
   overlayShown: boolean;
+  /** A resume was attached to at least one field. */
+  resumeAttached: boolean;
+  /** The page has a resume field, but no resume is uploaded. */
+  resumeMissing: boolean;
 }
 
 /** Popup → content script (chrome.tabs.sendMessage). */
@@ -183,7 +220,12 @@ export type Msg =
   | { type: 'LEARN_OPTION'; key: ProfileKey; optionText: string }
   // Options page: view, edit, delete.
   | { type: 'GET_LEARNED' }
-  | { type: 'UPDATE_LEARNED'; op: LearnedUpdate };
+  | { type: 'UPDATE_LEARNED'; op: LearnedUpdate }
+  // Options page: the resume. Text is extracted on the options page at upload
+  // (it can run the PDF worker; the service worker can't) and sent along.
+  | { type: 'SET_RESUME'; filename: string; base64: string; extractedText: string }
+  | { type: 'GET_RESUME' }
+  | { type: 'DELETE_RESUME' };
 
 /** How a learned answer was given: typed text, or a chosen option. */
 export type LearnedKind = 'text' | 'choice';

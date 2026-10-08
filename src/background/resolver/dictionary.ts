@@ -47,6 +47,9 @@ export const FIELD_PATTERNS: ReadonlyArray<readonly [ResolvableKey, readonly Reg
   // links, but not the applicant's personal site. "url" only counts when
   // paired with personal/site wording.
   ['website', [/\bweb ?site\b/, /\bportfolio\b/, /\bpersonal (site|page|url|link)\b/, /\bsite url\b/]],
+  // File inputs only (field-rules.ts). Covers "attach/upload resume", "upload CV", "Resume/CV", "Résumé"
+  // (a lookahead, not \b, ends the first pattern: \b doesn't see a boundary after a trailing "é").
+  ['resume', [/\br[eé]sum[eé]s?(?![a-z])/, /\bcvs?\b/, /\bcurriculum vitae\b/]],
 ];
 
 /**
@@ -77,6 +80,9 @@ export const KEY_EXCLUSIONS: Partial<Readonly<Record<ResolvableKey, RegExp>>> = 
   disabilityStatus: /\baccommodat/,
   // Citizenship/nationality isn't the country you live in.
   country: /\bcitizen|\bnationality\b|\bpassport\b/,
+  // Other documents: a file field that mentions any of these never gets the resume,
+  // even "Resume and cover letter" (attaching only the resume there would be wrong).
+  resume: /\bcover letters?\b|\bportfolios?\b|\bwriting samples?\b|\btranscripts?\b/,
 };
 
 /**
@@ -91,6 +97,8 @@ export const PROSE_KEYS: ReadonlySet<ResolvableKey> = new Set([
   'willingToRelocate',
   'desiredSalary',
   'noticePeriod',
+  // Only file inputs can take it, and "Please attach your most recent resume (PDF)" is prose.
+  'resume',
 ]);
 
 /**

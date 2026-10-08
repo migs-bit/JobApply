@@ -10,7 +10,7 @@ npm test
 
 - `tests/*.test.ts`, run with Node's built-in test runner. `scripts/test.mjs` bundles them first, so imports resolve the way they do in the extension.
 - They also run on every `npm run build`.
-- They cover the resolver tiers, the dictionary and its false-positive guards, the fill plan, the dropdown choice/synonym table and option matching, profile validation, and the popup's status wording.
+- They cover the resolver tiers, the dictionary and its false-positive guards, the fill plan, the dropdown choice/synonym table and option matching, profile validation, the popup's status wording, and the resume: its dictionary key, validation, storage round trip, and text extraction from the dummy PDF and DOCX.
 
 ## Browser end-to-end tests
 
@@ -45,6 +45,7 @@ npm run test:e2e:live                # also check live Lever/Ashby/Replit postin
 - reuse on the next visit (Tier 3 for questions, the filler's learned wordings for options);
 - edit, delete and delete-all in Options;
 - no taught text in logs. |
+| `resume` | Upload through the real options page: `.txt`, 6 MB and renamed files rejected; DOCX and PDF text extracted under the extension CSP. Every outcome in `resume-cases.html`: the exact bytes attached, Lever-style hidden input, cover letter / portfolio / hidden / image-only untouched, an existing file kept, "page reverted". React: survives a re-render; a remounted input reports "page reverted". Review row, no auto-dismiss, Undo. "No resume uploaded". Production build. No file bytes or text in logs. With `--live`, a real Lever form, stopping short of attaching (no resume stored, nothing sent). |
 | `profile-keys` | Choice dropdowns on the options page. Every outcome in `eeo-cases.html`. Synonym matching. Per-`<select>` diagnostics. The Lever-style EEO section. With `--live`, a real Lever EEO form. |
 
 **Live mode:** live postings change or close. The live checks look postings up through public job-board APIs where possible, and skip with a note if a page no longer has what they test.
@@ -55,9 +56,10 @@ npm run test:e2e:live                # also check live Lever/Ashby/Replit postin
 
 - `test-page/`: pages served to the browser suites, also usable by hand (`python3 -m http.server 8000 --directory test-page`).
   - `index.html`: a sample application.
-  - `scanner-cases.html`, `filler-cases.html`, `eeo-cases.html`, `radio-cases.html`, `learn-cases.html`: each control (or a radio group's first radio) declares its expected result in `data-expect-*` attributes.
+  - `scanner-cases.html`, `filler-cases.html`, `eeo-cases.html`, `radio-cases.html`, `learn-cases.html`, `resume-cases.html`: each control (or a radio group's first radio) declares its expected result in `data-expect-*` attributes.
   - `lever-like.html`: Lever's markup structure, with content written for this project. Used instead of saved copies of real postings.
-- `tests/e2e/fixtures/`: small sources bundled at test time: a React form, React radio groups, and an entry that exposes the filler for direct guard tests.
+- `tests/e2e/fixtures/`: small sources bundled at test time: a React form, React radio groups, React file inputs, and an entry that exposes the filler for direct guard tests.
+- `tests/fixtures/`: `dummy-resume.pdf` and `dummy-resume.docx`, obviously fake resumes ("Ada Lovelace - DUMMY TEST RESUME") used by the unit and browser tests. Also handy for trying the feature by hand.
 
 ## Adding a suite
 

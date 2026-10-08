@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Resume upload cases</title>
+    <style>
+      body { font: 15px/1.5 system-ui, sans-serif; max-width: 720px; margin: 32px auto; padding: 0 16px; }
+      .case { margin: 0 0 14px; padding: 8px 10px; border: 1px dashed #ccc; }
+      /* Lever-style: the native input is invisible inside a styled link. */
+      .visible-resume-upload { display: inline-block; position: relative; padding: 6px 12px; border: 1px solid #333; border-radius: 4px; }
+      .invisible-resume-upload { opacity: 0; width: 1px; position: absolute; left: 0; top: 0; }
+      .offscreen { position: absolute; left: -9999px; }
+    </style>
+  </head>
+  <body>
+    <h1>Resume upload cases</h1>
+    <p>
+      Upload a resume in the extension's options page, then click Fill. Each file input declares its expected outcome
+      in <code>data-expect</code>: <code>attached</code>, or the reason it's left alone.
+    </p>
+
+    <form id="form">
+      <div class="case"><label for="first">First name</label> <input id="first" name="first_name" /></div>
+
+      <div class="case"><label for="r-plain">Resume</label> <input type="file" id="r-plain" name="resume_plain" data-expect="attached" /></div>
+
+      <div class="case">
+        <label>
+          <div>Resume/CV<span>✱</span></div>
+          <a class="visible-resume-upload"><span>ATTACH RESUME/CV</span>
+            <input type="file" id="r-lever" class="invisible-resume-upload" name="resume" data-expect="attached" /></a>
+        </label>
+      </div>
+
+      <div class="case"><label for="cover">Cover letter</label> <input type="file" id="cover" name="cover_letter" data-expect="not a resume field" /></div>
+      <div class="case"><label for="portfolio">Portfolio</label> <input type="file" id="portfolio" name="portfolio" data-expect="not a resume field" /></div>
+
+      <div class="case"><label for="cv-existing">CV</label> <input type="file" id="cv-existing" name="cv_existing" data-expect="already has a file" /></div>
+
+      <div class="case">
+        <span>Upload your resume here</span>
+        <input type="file" id="r-hidden" class="offscreen" name="resume_hidden" data-expect="not visible" />
+      </div>
+
+      <div class="case"><label for="r-images">Resume (image scan)</label> <input type="file" id="r-images" accept="image/*" data-expect="file type not accepted" /></div>
+
+      <div class="case"><label for="r-disabled">Resume (disabled)</label> <input type="file" id="r-disabled" disabled data-expect="disabled" /></div>
+
+      <div class="case">
+        <label for="r-revert">Resume (this page clears it)</label> <input type="file" id="r-revert" data-expect="page reverted" />
+      </div>
+    </form>
+
+    <script>
+      // A page script that throws away whatever is attached: the filler must report "page reverted".
+      document.getElementById('r-revert').addEventListener('change', (e) => { e.target.value = ''; });
+      // Record the events a real file pick fires, to check the filler fires them too (and that they bubble).
+      window.__events = [];
+      for (const type of ['input', 'change']) {
+        document.getElementById('form').addEventListener(type, (e) => {
+          if (e.target.type === 'file') window.__events.push(`${type}:${e.target.id}`);
+        });
+      }
+    </script>
+  </body>
+</html>

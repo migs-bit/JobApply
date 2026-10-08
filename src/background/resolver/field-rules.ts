@@ -9,10 +9,10 @@ import type { FieldCandidate, Profile, ResolvableKey } from '../../shared/types'
 
 /**
  * Input types that can be filled. "radio" means a whole radio group (the
- * scanner reports one field per group). Everything else, including
- * checkbox, file and password, resolves to "unknown".
+ * scanner reports one field per group); "file" only ever takes the resume.
+ * Everything else, including checkbox and password, resolves to "unknown".
  */
-const FILLABLE_INPUT_TYPES = new Set(['text', 'email', 'tel', 'url', 'search', 'radio']);
+const FILLABLE_INPUT_TYPES = new Set(['text', 'email', 'tel', 'url', 'search', 'radio', 'file']);
 
 /** Returns why a field is out of scope for filling, or null if it's in scope. */
 export function unfillableReason(field: FieldCandidate): string | null {
@@ -55,12 +55,16 @@ const COMPATIBLE_KEYS: Readonly<Record<string, ReadonlySet<ResolvableKey> | null
     'veteranStatus',
     'disabilityStatus',
   ]),
+  // A file input only ever gets the resume; nothing else is a file.
+  file: new Set(['resume']),
   text: null,
   search: null,
 };
 
 export function isCompatible(field: FieldCandidate, key: ResolvableKey): boolean {
   const kind = field.tag === 'input' ? field.type : field.tag;
+  // The resume is a file: it never goes into a text box, whatever the label says ("Paste your resume").
+  if (key === 'resume') return kind === 'file';
   const allowed = COMPATIBLE_KEYS[kind];
   return allowed === null || (allowed !== undefined && allowed.has(key));
 }
@@ -71,6 +75,7 @@ export function isCompatible(field: FieldCandidate, key: ResolvableKey): boolean
  * (Whether the user has filled the value in is the filler's concern.)
  */
 export function canResolve(profile: Profile, key: ResolvableKey): boolean {
+  if (key === 'resume') return true; // stored separately (resume-store.ts), not in the profile
   if (key === 'fullName') return Object.hasOwn(profile, 'firstName') && Object.hasOwn(profile, 'lastName');
   return Object.hasOwn(profile, key);
 }

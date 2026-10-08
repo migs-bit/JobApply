@@ -154,12 +154,16 @@ describe('false-positive guards', () => {
 });
 
 describe('field scope and type compatibility', () => {
-  it('never resolves password, checkbox, or file inputs', () => {
-    for (const type of ['password', 'checkbox', 'file', 'date', 'number']) {
+  it('never resolves password or checkbox inputs', () => {
+    for (const type of ['password', 'checkbox', 'date', 'number']) {
       const r = resolve({ type, label: 'Email' });
       assert.deepEqual([r.key, r.source], ['unknown', 'none'], type);
       assert.match(r.evidence, /is not filled/);
     }
+  });
+  it('file inputs only ever resolve to the resume (see resume.test.ts)', () => {
+    const r = resolve({ type: 'file', label: 'Email' });
+    assert.deepEqual([r.key, r.source, r.evidence], ['unknown', 'none', 'not a resume field']);
   });
   it('an input type restricts which keys can match', () => {
     assert.equal(keyOf({ type: 'email', label: 'Phone or email' }), 'email');

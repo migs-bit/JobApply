@@ -14,6 +14,7 @@ import type { Profile, ProfileErrors, ProfileKey } from '../shared/types';
 import { CHOICES } from '../shared/choices';
 import { SECTIONS, type FieldSpec } from './fields';
 import { LearnedAnswers } from './learned';
+import { ResumeSection } from './resume';
 
 type Status = { kind: 'loading' | 'idle' | 'saving' | 'saved' } | { kind: 'error'; message: string };
 
@@ -108,6 +109,8 @@ function OptionsApp() {
           </span>
         </div>
       </form>
+
+      <ResumeSection />
 
       <LearnedAnswers />
     </main>

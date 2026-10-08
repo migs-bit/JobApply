@@ -1,5 +1,7 @@
 import type { FillKey, ResolverSource } from '../../shared/types';
 import type { UndoOutcome } from '../filler/dom-filler';
+import { isFileInput } from '../filler/file-filler';
+import { visibleFileTarget } from '../filler/visibility';
 import { OVERLAY_CSS, REVIEW_OUTLINE } from './overlay-styles';
 import { renderTeachSection, type TeachOutcome, type TeachRow } from './teach-section';
 
@@ -31,6 +33,8 @@ export interface OverlayRow {
 export interface OverlayOptions {
   rows: OverlayRow[];
   skipped: number;
+  /** The page has a resume field but no resume is uploaded: say so in the summary. */
+  resumeMissing: boolean;
   /** Restores filled fields; reports how many were restored and which radio answers must be changed by hand. */
   onUndo: () => UndoOutcome;
   /** Fields the extension couldn't fill that the user can teach ("Not filled" section). */
@@ -46,7 +50,7 @@ export function closeOverlay(): void {
   current?.close();
 }
 
-export function showOverlay({ rows, skipped, onUndo, teachable, onTeach }: OverlayOptions): void {
+export function showOverlay({ rows, skipped, resumeMissing, onUndo, teachable, onTeach }: OverlayOptions): void {
   closeOverlay(); // one panel at a time; a re-fill replaces it
 
   const host = document.createElement('job-autofill-overlay');
@@ -66,7 +70,8 @@ export function showOverlay({ rows, skipped, onUndo, teachable, onTeach }: Overl
   panel.setAttribute('aria-label', 'Job Autofill results');
 
   const header = el('header');
-  const summary = el('p', 'summary', summaryText(filled.length, review, failed, skipped, teachable.length));
+  const resumeAttached = filled.some((r) => r.key === 'resume');
+  const summary = el('p', 'summary', summaryText({ filled: filled.length, review, failed, skipped, teachable: teachable.length, resumeAttached, resumeMissing }));
   summary.setAttribute('role', 'status');
   header.append(el('h2', '', 'Job Autofill'), summary);
 
@@ -96,7 +101,7 @@ export function showOverlay({ rows, skipped, onUndo, teachable, onTeach }: Overl
   // Mark low-confidence fields on the page too; remember their old outline to restore.
   const outlined: Array<{ field: HTMLElement; outline: string; offset: string }> = [];
   for (const row of filled.filter((r) => r.requiresReview)) {
-    const field = document.querySelector<HTMLElement>(row.selector);
+    const field = shownElementFor(row.selector);
     if (!field) continue;
     outlined.push({ field, outline: field.style.outline, offset: field.style.outlineOffset });
     field.style.outline = REVIEW_OUTLINE.outline;
@@ -173,7 +178,7 @@ function renderRow(row: OverlayRow): HTMLLIElement {
   button.append(el('span', 'meta', meta));
 
   button.addEventListener('click', () => {
-    const field = document.querySelector<HTMLElement>(row.selector);
+    const field = shownElementFor(row.selector);
     field?.scrollIntoView({ block: 'center', behavior: 'smooth' });
     field?.focus({ preventScroll: true });
   });
@@ -181,13 +186,36 @@ function renderRow(row: OverlayRow): HTMLLIElement {
   return li;
 }
 
-function summaryText(filled: number, review: number, failed: number, skipped: number, teachable: number): string {
-  const parts = [filled > 0 ? `Filled ${filled} field${filled === 1 ? '' : 's'}` : 'Nothing new filled'];
-  if (review > 0) parts.push(`${review} to review`);
-  if (failed > 0) parts.push(`${failed} didn't stick`);
-  if (skipped > 0) parts.push(`${skipped} skipped`);
-  if (teachable > 0) parts.push(`${teachable} to teach`);
+interface SummaryCounts {
+  filled: number;
+  review: number;
+  failed: number;
+  skipped: number;
+  teachable: number;
+  resumeAttached: boolean;
+  resumeMissing: boolean;
+}
+
+function summaryText(c: SummaryCounts): string {
+  const parts = [c.filled > 0 ? `Filled ${c.filled} field${c.filled === 1 ? '' : 's'}` : 'Nothing new filled'];
+  if (c.resumeAttached) parts.push('resume attached');
+  if (c.review > 0) parts.push(`${c.review} to review`);
+  if (c.failed > 0) parts.push(`${c.failed} didn't stick`);
+  if (c.skipped > 0) parts.push(`${c.skipped} skipped`);
+  if (c.teachable > 0) parts.push(`${c.teachable} to teach`);
+  if (c.resumeMissing) parts.push('no resume uploaded');
   return `${parts.join(' · ')}.`;
+}
+
+/**
+ * The element to outline or scroll to for a row: the field itself, or for a
+ * hidden native file input, the upload button the user actually sees.
+ */
+function shownElementFor(selector: string): HTMLElement | null {
+  const field = document.querySelector<HTMLElement>(selector);
+  if (!isFileInput(field)) return field;
+  const shown = visibleFileTarget(field);
+  return shown instanceof HTMLElement ? shown : field;
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = '', text = ''): HTMLElementTagNameMap[K] {

@@ -23,7 +23,7 @@ export async function run({ prodDist }) {
     const ev = page.evaluate;
     const msg = (m) => ev(`chrome.runtime.sendMessage(${JSON.stringify(m)})`);
 
-    const shape = await ev(`({ controls: document.querySelectorAll('section input, section select').length,
+    const shape = await ev(`({ controls: document.querySelectorAll('form section input, form section select').length,
       ai: document.querySelector('fieldset').disabled && document.querySelectorAll('fieldset input, fieldset select').length })`);
     suite.check('options page renders all 22 profile controls + the disabled AI section', shape.controls === 22 && shape.ai === 2, JSON.stringify(shape));
 

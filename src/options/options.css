@@ -111,3 +111,11 @@ h3 { margin: 16px 0 6px; font-size: 13px; color: var(--muted); }
 }
 .learned-actions { display: flex; gap: 6px; padding-top: 20px; }
 button.secondary { background: transparent; color: var(--text); border: 1px solid var(--border); }
+
+.resume-card { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0 0 14px; }
+.resume-card dt { color: var(--muted); }
+.resume-card dd { margin: 0; overflow-wrap: anywhere; }
+.resume-name { font-weight: 600; }
+.resume-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.status.done { color: var(--ok); }
+.status.warning { color: var(--warning); }

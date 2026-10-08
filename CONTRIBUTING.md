@@ -79,6 +79,6 @@ Until then, the most useful contribution for a site is a bug report with the dev
 - **TypeScript:** strict mode, no `any` without a comment explaining why.
 - **Files:** small, under about 200 lines where reasonable.
 - **Comments:** explain *why*, not *what*.
-- **Dependencies:** none beyond React and Vite without a strong reason. Dependency versions are pinned exactly.
+- **Dependencies:** none beyond React and Vite without a strong reason. Dependency versions are pinned exactly. The current exceptions are `pdfjs-dist` and `mammoth`, which read resume text locally and load only on the options page.
 - **Fixture pages:** declare expected results on each control (`data-expect-*`).
 - **Docs:** `README.md` (user-facing) and `ROADMAP.md` are the living docs. Note user-visible changes under `[Unreleased]` in `CHANGELOG.md`. Scratch notes (`prompt.md`, `todo.md`, `scratch*.md`, `*.local.md`) are git-ignored and aren't specs.

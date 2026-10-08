@@ -6,6 +6,17 @@ All notable changes. The format follows [Keep a Changelog](https://keepachangelo
 
 ### Added
 
+- **Resume upload.** One PDF or DOCX resume (up to 5 MB), uploaded on a new **Options → Resume** section (Upload, Replace, Remove), attached to resume fields on **Fill this page**.
+  - **Storage:** `chrome.storage.local`, with the same locked-down access as the profile, as `{ filename, mimeType, size, base64, extractedText, uploadedAt }`. No site or URL is kept.
+  - **Text extraction:** the plain text (capped at 20,000 characters) is extracted once at upload, entirely in the extension, with PDF.js and mammoth. It's kept for the planned AI tier; nothing reads it yet. If extraction fails, the file is still stored.
+  - **Validation:** files over 5 MB and anything but PDF/DOCX are rejected with a clear message. The service worker re-checks the decoded bytes, including the file signature.
+  - **Matching:** a new `resume` key ("resume", "CV", "curriculum vitae", "attach/upload resume", "Résumé"), valid for `type="file"` inputs only. A field mentioning a cover letter, portfolio, writing sample or transcript never matches.
+  - **Filling:** the file is put into the input with `DataTransfer`, `input` and `change` fire, and after 100 ms the filler checks the file stuck ("page reverted" otherwise, including when React swaps the input out). A file already attached is never replaced.
+  - **Visibility:** a file input counts as visible when it, its label, or the upload button wrapped around it is (Lever hides the native input inside an "ATTACH RESUME/CV" button). Fully hidden file inputs are never touched.
+  - **Panel and popup:** "Resume attached: file.pdf" as a review row (filename only); the panel never auto-closes after attaching a file. Summaries say "resume attached", or "no resume uploaded" when a page asks for one and none is stored.
+  - **Undo** removes the attached resume.
+  - **Tests:** unit tests for the dictionary, storage, validation and extraction (dummy PDF and DOCX fixtures in `tests/fixtures/`), a `resume` browser suite, and a live Lever check that stops short of attaching.
+
 - **"Teach this" (learning system).** Fields the extension couldn't fill are listed under "Not filled" in the panel. Answer one on the page, click Teach this, and it's remembered:
   - **Custom questions:** remembered as question → answer, used by a new resolver **Tier 3 (learned)**, at 0.85 confidence.
     - **Typed answers** (text fields, textareas) are always flagged for review, so they show yellow and the panel doesn't auto-close; a generic answer like "Why do you want to work here?" may not fit the next company.
@@ -33,6 +44,9 @@ All notable changes. The format follows [Keep a Changelog](https://keepachangelo
 - **Build:** `scripts/build.mjs --out=<dir>`, which builds somewhere other than `dist/`.
 
 ### Changed
+
+- **File inputs are now in scope, for the resume only.** Before, every `type="file"` input resolved to unknown.
+- **New runtime dependencies:** `pdfjs-dist` 6.3.289 and `mammoth` 1.12.3, pinned exactly, loaded only on the options page when a resume is uploaded.
 
 - **Tiers are numbered by run order:** 1 autocomplete, 2 dictionary, 3 learned, 4 fuzzy, 5 site adapters (planned), 6 AI (planned).
 - **The panel now also appears when nothing was filled but something can be taught.** It doesn't auto-close in that case.

@@ -15,6 +15,7 @@ import {
   type LearnResult,
 } from './storage/learned-store';
 import { getProfile, restrictStorageToTrustedContexts, saveProfile } from './storage/profile-store';
+import { buildResume, deleteResume, getResume, resumeFileOf, saveResume, summarize } from './storage/resume-store';
 import { debug } from '../shared/log';
 import type { Msg, MsgResponse } from '../shared/types';
 
@@ -60,8 +61,10 @@ async function handle(msg: Msg): Promise<MsgResponse<unknown>> {
     }
 
     case 'RESOLVE_FIELDS': {
-      const [profile, learned] = await Promise.all([getProfile(), getLearned()]);
-      return { ok: true, data: buildFillPlan(msg.fields, profile, learned) };
+      // The resume (up to ~6.7 MB) is only read from storage when the page has a file input.
+      const hasFileInput = msg.fields.some((f) => f.tag === 'input' && f.type === 'file');
+      const [profile, learned, resume] = await Promise.all([getProfile(), getLearned(), hasFileInput ? getResume() : null]);
+      return { ok: true, data: buildFillPlan(msg.fields, profile, learned, resume && resumeFileOf(resume)) };
     }
 
     // Case 1: an unknown field's question → the answer the user gave on the page.
@@ -73,6 +76,27 @@ async function handle(msg: Msg): Promise<MsgResponse<unknown>> {
       const code = (await getProfile())[msg.key];
       return withoutStore(await updateLearned((store) => learnOption(store, msg.key, msg.optionText, code)));
     }
+
+    // The options page gets a summary back, never the file or its text.
+    case 'SET_RESUME': {
+      const built = buildResume(msg);
+      if (!built.ok) return { ok: false, error: built.error };
+      try {
+        await saveResume(built.resume);
+      } catch {
+        return { ok: false, error: 'Could not save the resume: browser storage is full.' };
+      }
+      return { ok: true, data: summarize(built.resume) };
+    }
+
+    case 'GET_RESUME': {
+      const resume = await getResume();
+      return { ok: true, data: resume && summarize(resume) };
+    }
+
+    case 'DELETE_RESUME':
+      await deleteResume();
+      return { ok: true, data: null };
 
     case 'GET_LEARNED':
       return { ok: true, data: await getLearned() };

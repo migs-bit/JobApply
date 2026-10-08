@@ -71,6 +71,16 @@ For weirdly-worded forms: "What should we call you?" → first name. "Best numbe
 
 Because if you've already typed something into a field, the extension shouldn't clobber it. Safety rule: skip any field that already has a value. Same for hidden, disabled, or invisible fields — those are phishing vectors.
 
+### Where data is stored
+
+Everything lives in `chrome.storage.local`, locked to the extension's own pages and service worker (`setAccessLevel('TRUSTED_CONTEXTS')`), so web pages and content scripts can't read it:
+
+- **`profile`:** the profile fields (name, contact, address, links, job preferences, eligibility, EEO).
+- **`learned`:** answers and option wordings taught with "Teach this".
+- **`resume`:** one PDF or DOCX file, as `{ filename, mimeType, size, base64, extractedText, uploadedAt }`. 5 MB max (≈6.7 MB as base64, inside the 10 MB quota, so no IndexedDB). `extractedText` is read once at upload with PDF.js / mammoth, capped at 20,000 characters, and kept for the AI phase; nothing reads it yet. No site or URL is stored with it.
+
+A page only receives what's being filled: profile values for matched fields, and the resume file only when a field resolved to `resume` (never its extracted text).
+
 ### Why no radios, checkboxes, or file uploads in the MVP?
 
 Each is a different fill mechanism:
@@ -79,7 +89,7 @@ Each is a different fill mechanism:
 - **File uploads:** need `DataTransfer` with a real file object
 - **Type-to-search widgets:** aren't native `<select>` at all, they're divs pretending
 
-These are real features, just scheduled later so the MVP ships and works.
+These are real features, just scheduled later so the MVP ships and works. Radios came in Phase 2 and resume uploads in Phase 4 (only the resume, only into resume fields).
 
 ### Why not support Workday / iCIMS / Greenhouse yet?
 

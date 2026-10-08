@@ -52,6 +52,23 @@ export function isRadioVisibleToUser(radio: HTMLInputElement): boolean {
   return labels.some(isVisibleToUser);
 }
 
+/**
+ * What the user sees of a file input: the input itself, or the label / styled
+ * button wrapped around it. Upload buttons almost always hide the native
+ * input (Lever: an opacity-0, 1px input inside a visible "ATTACH RESUME/CV"
+ * link) and show their own control, whose text says what it's for. Returns
+ * null when none of those is visible: a file input the user can't see is
+ * never touched.
+ */
+export function visibleFileTarget(input: HTMLInputElement): Element | null {
+  if (isVisibleToUser(input)) return input;
+  const candidates: Element[] = [...(input.labels ?? [])];
+  for (const wrapper of [input.closest('label'), input.closest('a, button, [role="button"]')]) {
+    if (wrapper && !candidates.includes(wrapper)) candidates.push(wrapper);
+  }
+  return candidates.find(isVisibleToUser) ?? null;
+}
+
 /** `clip: rect(0 0 0 0)` / `clip-path: inset(50%)`: the common ways to visually hide an element. */
 function clipsToNothing(style: CSSStyleDeclaration): boolean {
   const clip = /^rect\(\s*([-\d.]+)px,?\s*([-\d.]+)px,?\s*([-\d.]+)px,?\s*([-\d.]+)px\s*\)$/.exec(style.clip);

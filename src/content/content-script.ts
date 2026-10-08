@@ -39,6 +39,8 @@ async function fillPage(): Promise<FillSummary> {
     failed: 0,
     teachable: 0,
     overlayShown: false,
+    resumeAttached: false,
+    resumeMissing: false,
   };
   if (fields.length === 0) return empty;
 
@@ -46,10 +48,13 @@ async function fillPage(): Promise<FillSummary> {
   if (!res.ok) throw new Error(`resolve failed: ${res.error}`);
   logResolutions(fields, res.data);
 
-  const results = await applyFill(res.data.instructions);
-  logFill(fields, results);
-  logChoiceDiagnostics(fields, res.data, results);
-  const { overlayShown, teachable } = presentResults(fields, res.data, results);
+  const all = await applyFill(res.data.instructions, document, res.data.resume);
+  logFill(fields, all);
+  logChoiceDiagnostics(fields, res.data, all);
+  // A resume field with no resume uploaded wasn't really attempted: it's reported as a hint, not a skip.
+  const resumeMissing = all.some(isMissingResume);
+  const results = all.filter((r) => !isMissingResume(r));
+  const { overlayShown, teachable } = presentResults(fields, res.data, results, resumeMissing);
 
   const filled = results.filter((r) => r.status === 'filled');
   return {
@@ -61,22 +66,32 @@ async function fillPage(): Promise<FillSummary> {
     failed: results.filter((r) => r.status === 'failed').length,
     teachable,
     overlayShown,
+    resumeAttached: filled.some((r) => r.key === 'resume'),
+    resumeMissing,
   };
 }
+
+const isMissingResume = (r: FillResult) => r.key === 'resume' && r.reason === 'no resume uploaded';
 
 /**
  * Shows the overlay for anything filled, failed, or teachable, and reports
  * whether it did. Runs with none of those are left to the popup's status line.
  */
-function presentResults(fields: FieldCandidate[], plan: FillPlan, results: FillResult[]): { overlayShown: boolean; teachable: number } {
+function presentResults(
+  fields: FieldCandidate[],
+  plan: FillPlan,
+  results: FillResult[],
+  resumeMissing: boolean,
+): { overlayShown: boolean; teachable: number } {
   const values = new Map(plan.instructions.map((i) => [i.fieldId, i.value]));
   const rows: OverlayRow[] = results
     .filter((r) => r.status !== 'skipped')
     .map((r) => ({
       label: labelOf(fields, r.fieldId),
       key: r.key,
-      // For dropdowns and radios, show the option actually chosen ("I am not a veteran"), not the generic label.
-      value: r.status === 'filled' ? (r.choice?.matched ?? values.get(r.fieldId) ?? '') : '',
+      // For dropdowns and radios, show the option actually chosen ("I am not a veteran"), not the generic label;
+      // for a file input, the attached filename (never a path).
+      value: r.status !== 'filled' ? '' : r.attached ? `Resume attached: ${r.attached}` : (r.choice?.matched ?? values.get(r.fieldId) ?? ''),
       confidence: r.confidence,
       source: r.source,
       requiresReview: r.requiresReview,
@@ -90,6 +105,7 @@ function presentResults(fields: FieldCandidate[], plan: FillPlan, results: FillR
   showOverlay({
     rows,
     skipped: results.filter((r) => r.status === 'skipped').length,
+    resumeMissing,
     onUndo: () => undoFill(results),
     teachable: teachable.map((t) => t.row),
     onTeach: async (fieldId) => {

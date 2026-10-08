@@ -11,7 +11,7 @@ import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { ROOT, tempDir } from './lib/harness.mjs';
 
-const SUITES = ['extension', 'scanner', 'resolve', 'fill', 'popup', 'overlay', 'profile-keys', 'radio', 'learning'];
+const SUITES = ['extension', 'scanner', 'resolve', 'fill', 'popup', 'overlay', 'profile-keys', 'radio', 'learning', 'resume'];
 const args = process.argv.slice(2);
 const live = args.includes('--live');
 const picked = args.filter((a) => !a.startsWith('--'));
