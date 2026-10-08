@@ -45,6 +45,16 @@ All notable changes. The format follows [Keep a Changelog](https://keepachangelo
 
 ### Changed
 
+- **Robust fill: text fields and dropdowns are filled the way a person fills them,** so form frameworks record the value, not just the page. Before, some fields showed the value but submitted blank, because a framework committed the value to its state on blur (or focus, or key events) that never came.
+  - **Text inputs and textareas:** `focus()`, native value setter, then `focus`, `focusin`, `keydown`, `input`, `keyup`, `change`, `blur()`, `blur`, `focusout`.
+  - **Native dropdowns:** `focus()`; `option.selected`, `selectedIndex` and the native `value` setter all set; then `focus`, `focusin`, `mousedown`, `mouseup`, `click` on the option, `click`, `input`, `change`, `blur()`, `blur`, `focusout`.
+  - **`focusin` / `focusout` are dispatched explicitly.** React's `onFocus`/`onBlur` listen for them. And while the popup has keyboard focus, the page has none, so `element.focus()`/`blur()` fire no events at all.
+  - **Post-fill verification:** 200 ms after filling, every filled field (text, dropdown, radio, file) is re-read. One the page changed back is reported as failed, "page reverted".
+  - **Failed rows are yellow** review rows now, with their fields outlined on the page. The panel never auto-dismisses when something failed.
+  - **Dev builds** log the exact event sequence sent to each field (key, selector, events; never the value).
+  - Radios (`.click()`) and file inputs (100 ms check) are unchanged, apart from the verification pass.
+  - **Undo** uses the same sequences, so the page's state follows.
+
 - **File inputs are now in scope, for the resume only.** Before, every `type="file"` input resolved to unknown.
 - **New runtime dependencies:** `pdfjs-dist` 6.3.289 and `mammoth` 1.12.3, pinned exactly, loaded only on the options page when a resume is uploaded.
 

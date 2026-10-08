@@ -5,6 +5,7 @@
  */
 import { debug, debugTable } from '../shared/log';
 import type { FieldCandidate, FillPlan, FillResult } from '../shared/types';
+import type { EventRecord } from './filler/event-sequence';
 import { optionTexts } from './filler/option-match';
 import type { scanFields } from './scanner/dom-scanner';
 
@@ -69,6 +70,24 @@ export function logFill(fields: FieldCandidate[], results: FillResult[]): void {
       reason: r.reason ?? '',
       review: r.requiresReview,
       source: r.source,
+    })),
+  );
+}
+
+/**
+ * Dev builds only: the exact event sequence played on each field, so "the
+ * page shows it but submits blank" can be checked against what was sent.
+ * Step names only: never a value or the key typed.
+ */
+export function logEventSequences(fields: FieldCandidate[], records: readonly EventRecord[]): void {
+  if (records.length === 0) return;
+  debug(`events: ${records.length} field(s)`);
+  debugTable(
+    records.map((r) => ({
+      field: labelOf(fields, fields.find((f) => f.selector === r.selector)?.id ?? ''),
+      key: r.key,
+      selector: r.selector,
+      events: r.events.join(' → '),
     })),
   );
 }

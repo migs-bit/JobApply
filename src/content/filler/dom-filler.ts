@@ -1,8 +1,10 @@
 import type { FillInstruction, FillResult, ResumeFile } from '../../shared/types';
+import { plausibleKey, recordEvents, runSequence, SELECT_SEQUENCE, TEXT_SEQUENCE } from './event-sequence';
 import { makeResult, querySafely } from './fill-result';
-import { FILE_SETTLE_MS, isFileInput, startFileFill, undoFile } from './file-filler';
+import { FILE_SETTLE_MS, fileStillAttached, isFileInput, startFileFill, undoFile } from './file-filler';
 import { matchChoice, optionTexts } from './option-match';
-import { isRadio, RADIO_SETTLE_MS, startRadioFill, undoRadio } from './radio-filler';
+import { isRadio, RADIO_SETTLE_MS, radioStillChosen, startRadioFill, undoRadio } from './radio-filler';
+import { VERIFY_DELAY_MS, verifyResults } from './verify';
 import { isVisibleToUser } from './visibility';
 
 /**
@@ -13,6 +15,10 @@ import { isVisibleToUser } from './visibility';
  * page can change between scanning and filling (the service-worker round
  * trip is async), and a selector that pointed at a text box could now point
  * at a password field or a hidden one.
+ *
+ * Text fields and dropdowns are filled with a full focus → set → events →
+ * blur sequence (event-sequence.ts), and every fill is re-checked once
+ * everything is done (verify.ts).
  */
 
 type Fillable = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
@@ -20,22 +26,23 @@ type Fillable = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
 const FILLABLE_INPUT_TYPES = new Set(['text', 'email', 'tel', 'url', 'search']);
 
 /**
- * What each successful fill wrote and what it replaced, for Undo. Kept in the
- * content script's isolated world (never logged, never sent anywhere), and
- * weakly keyed so a field the page removes doesn't linger.
+ * What each successful fill wrote and what it replaced, for Undo and the
+ * verification pass. Kept in the content script's isolated world (never
+ * logged, never sent anywhere), and weakly keyed so a field the page removes
+ * doesn't linger. `index` is the chosen option, for dropdowns.
  */
-const applied = new WeakMap<Element, { filled: string; previous: string }>();
+const applied = new WeakMap<Element, { filled: string; previous: string; index?: number }>();
 
 /**
- * React-safe value setter (Brief.md). Frameworks like React wrap an input's
+ * React-safe value write (Brief.md). Frameworks like React wrap an input's
  * `value` setter to track changes; assigning through that wrapper makes React
  * think nothing changed and it discards the input event. Calling the native
- * prototype setter bypasses the wrapper, so the events below look like real
- * user input. (Content scripts run in an isolated world where the page's
+ * prototype setter bypasses the wrapper, so the events that follow look like
+ * real user input. (Content scripts run in an isolated world where the page's
  * wrapper isn't visible anyway; using the prototype setter keeps this correct
- * in either world.)
+ * in either world.) Fires no events: runSequence does that.
  */
-export function setNativeValue(el: Fillable, value: string): void {
+export function writeNativeValue(el: Fillable, value: string): void {
   const proto =
     el instanceof HTMLTextAreaElement
       ? HTMLTextAreaElement.prototype
@@ -45,15 +52,36 @@ export function setNativeValue(el: Fillable, value: string): void {
   const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
   if (setter) setter.call(el, value);
   else el.value = value;
+}
 
-  el.dispatchEvent(new Event('input', { bubbles: true }));
-  el.dispatchEvent(new Event('change', { bubbles: true }));
+/** Fills a text field or textarea with the full TEXT_SEQUENCE. Returns the steps played. */
+export function typeInto(el: HTMLInputElement | HTMLTextAreaElement, value: string): string[] {
+  return runSequence(el, TEXT_SEQUENCE, { set: () => writeNativeValue(el, value), key: plausibleKey(value), data: value });
+}
+
+/**
+ * Picks option `index` of a dropdown with the full SELECT_SEQUENCE: the
+ * option is selected three ways (option.selected, selectedIndex, and the
+ * native value setter), because different frameworks read different ones.
+ */
+export function chooseOption(select: HTMLSelectElement, index: number): string[] {
+  const option = select.options[index];
+  return runSequence(select, SELECT_SEQUENCE, {
+    set: () => {
+      if (option) option.selected = true;
+      select.selectedIndex = index;
+      writeNativeValue(select, option?.value ?? '');
+    },
+    ...(option ? { option } : {}),
+  });
 }
 
 /**
  * Applies every instruction. Radio groups and file inputs are set first and
- * verified together after one short settle, so ten of them cost one wait,
- * not ten. `resume` is the plan's file, for instructions keyed `resume`.
+ * checked together after one short settle, so ten of them cost one wait,
+ * not ten. Then, if anything was filled, every filled field is re-read after
+ * VERIFY_DELAY_MS ("page reverted" if it changed). `resume` is the plan's
+ * file, for instructions keyed `resume`.
  */
 export async function applyFill(
   instructions: readonly FillInstruction[],
@@ -67,10 +95,23 @@ export async function applyFill(
     if (isFileInput(el) || instruction.key === 'resume') return startFileFill(instruction, resume, doc);
     return fillOne(instruction, doc);
   });
-  if (pending.some((p) => typeof p === 'function')) {
-    await new Promise((r) => setTimeout(r, Math.max(RADIO_SETTLE_MS, FILE_SETTLE_MS)));
-  }
-  return pending.map((p) => (typeof p === 'function' ? p() : p));
+  if (pending.some((p) => typeof p === 'function')) await sleep(Math.max(RADIO_SETTLE_MS, FILE_SETTLE_MS));
+  const results = pending.map((p) => (typeof p === 'function' ? p() : p));
+
+  if (!results.some((r) => r.status === 'filled')) return results;
+  await sleep(VERIFY_DELAY_MS);
+  return verifyResults(results, (r) => stillHolds(r, doc));
+}
+
+/** Does the field still hold what this fill put there? */
+export function stillHolds(result: FillResult, doc: Document = document): boolean {
+  const el = querySafely(doc, result.selector);
+  if (isRadio(el)) return radioStillChosen(result, doc);
+  if (isFileInput(el)) return fileStillAttached(result, doc);
+  const record = el ? applied.get(el) : undefined;
+  if (!el || !record || !isFillable(el) || !el.isConnected) return false;
+  if (el instanceof HTMLSelectElement) return el.selectedIndex === record.index && el.value === record.filled;
+  return el.value === record.filled;
 }
 
 function fillOne(instruction: FillInstruction, doc: Document): FillResult {
@@ -92,23 +133,27 @@ function fillOne(instruction: FillInstruction, doc: Document): FillResult {
   const previousValue = el.value;
   if (previousValue.trim() !== '') return result('skipped', previousValue, 'already has a value');
 
-  let value = instruction.value;
+  let events: string[];
+  let index: number | undefined;
   if (el instanceof HTMLSelectElement) {
-    const options = Array.from(el.options);
-    const match = matchChoice(options, instruction.optionCandidates ?? [instruction.value], instruction.learnedOptions);
+    const match = matchChoice(Array.from(el.options), instruction.optionCandidates ?? [instruction.value], instruction.learnedOptions);
     if ('reason' in match) return result('skipped', previousValue, match.reason);
     if (choice) Object.assign(choice, { matched: match.matched, ...(match.viaLearned ? { viaLearned: true } : {}) });
-    value = options[match.index]?.value ?? '';
-  } else if (el.maxLength >= 0 && value.length > el.maxLength) {
-    // Truncating would silently submit wrong data (a cut-off email, a partial URL).
-    return result('skipped', previousValue, 'value longer than the field allows');
+    index = match.index;
+    events = chooseOption(el, index);
+  } else {
+    if (el.maxLength >= 0 && instruction.value.length > el.maxLength) {
+      // Truncating would silently submit wrong data (a cut-off email, a partial URL).
+      return result('skipped', previousValue, 'value longer than the field allows');
+    }
+    events = typeInto(el, instruction.value);
   }
+  recordEvents({ key: instruction.key, selector: instruction.selector, events });
 
-  setNativeValue(el, value);
   // A controlled input with no change handler, or a script that clears the
   // field, leaves it empty; report that instead of claiming success.
   if (el.value === '') return result('failed', previousValue, 'page did not keep the value');
-  applied.set(el, { filled: el.value, previous: previousValue });
+  applied.set(el, { filled: el.value, previous: previousValue, ...(index !== undefined ? { index } : {}) });
   return result('filled', previousValue);
 }
 
@@ -119,7 +164,8 @@ export interface UndoOutcome {
 }
 
 /**
- * Restores fields this extension filled to their previous values. Only undoes
+ * Restores fields this extension filled to their previous values, with the
+ * same event sequences as the fill, so the page's state follows. Only undoes
  * our own writes: a field (or radio group) the user has changed since filling
  * is left alone.
  */
@@ -141,7 +187,12 @@ export function undoFill(results: readonly FillResult[], doc: Document = documen
     }
     const record = el ? applied.get(el) : undefined;
     if (!el || !record || !isFillable(el) || el.value !== record.filled) continue;
-    setNativeValue(el, record.previous);
+    if (el instanceof HTMLSelectElement) {
+      // -1 (no option) when the previous value matched none, as before the fill.
+      chooseOption(el, Array.from(el.options).findIndex((o) => o.value === record.previous));
+    } else {
+      typeInto(el, record.previous);
+    }
     applied.delete(el);
     restored++;
   }
@@ -152,3 +203,5 @@ function isFillable(el: Element): el is Fillable {
   if (el instanceof HTMLInputElement) return FILLABLE_INPUT_TYPES.has(el.type);
   return el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement;
 }
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));

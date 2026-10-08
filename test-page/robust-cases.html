@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Robust fill cases</title>
+    <style>
+      body { font: 15px/1.5 system-ui, sans-serif; max-width: 720px; margin: 32px auto; padding: 0 16px; }
+      .case { margin: 0 0 14px; padding: 8px 10px; border: 1px dashed #ccc; }
+    </style>
+  </head>
+  <body>
+    <h1>Robust fill cases</h1>
+    <p>
+      Fields that accept a fill and then change it back, the way a framework re-rendering from stale state does. They
+      must come out as <strong>failed: page reverted</strong>, shown in yellow, and the panel must stay open. The other
+      fields record the events the filler sends (see <code>window.__events</code>).
+    </p>
+
+    <form id="form">
+      <div class="case"><label for="first">First name</label> <input id="first" name="first_name" /></div>
+      <div class="case"><label for="email">Email</label> <input id="email" type="email" name="email" /></div>
+      <div class="case">
+        <label for="country">Country</label>
+        <select id="country" name="country"><option value="">Select…</option><option value="CA">Canada</option><option value="US">United States</option></select>
+      </div>
+
+      <div class="case"><label for="city">City</label> <input id="city" name="city" data-expect="page reverted" /></div>
+      <div class="case">
+        <label for="state">State</label>
+        <select id="state" name="state" data-expect="page reverted"><option value="">Select…</option><option value="ON">Ontario</option></select>
+      </div>
+    </form>
+
+    <script>
+      // Revert 50 ms after the change, like a re-render from stale state.
+      for (const id of ['city', 'state']) {
+        const el = document.getElementById(id);
+        el.addEventListener('change', () => setTimeout(() => { el.value = ''; }, 50));
+      }
+      // Record the synthetic events the filler dispatches (isTrusted false), in order, per field.
+      window.__events = {};
+      const types = ['focus', 'focusin', 'blur', 'focusout', 'keydown', 'keyup', 'input', 'change', 'mousedown', 'mouseup', 'click'];
+      for (const type of types) {
+        document.addEventListener(type, (e) => {
+          if (e.isTrusted) return; // the browser's own focus/blur from element.focus() are not ours
+          const field = e.target.closest?.('input, select, textarea');
+          if (!field) return;
+          const label = e.target.localName === 'option' ? `${type} (option)` : type;
+          (window.__events[field.id] ??= []).push(label + (e.key ? `[${e.key}]` : '') + (e.bubbles ? '' : ' (no bubble)'));
+        }, true);
+      }
+    </script>
+  </body>
+</html>

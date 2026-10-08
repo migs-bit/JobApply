@@ -1,5 +1,6 @@
 import { base64ToBytes } from '../../shared/resume-validation';
 import type { FillInstruction, FillResult, ResumeFile } from '../../shared/types';
+import { recordEvents } from './event-sequence';
 import { makeResult, querySafely } from './fill-result';
 import { visibleFileTarget } from './visibility';
 
@@ -50,6 +51,7 @@ export function startFileFill(instruction: FillInstruction, resume: ResumeFile |
   el.files = transfer.files;
   el.dispatchEvent(new Event('input', { bubbles: true }));
   el.dispatchEvent(new Event('change', { bubbles: true }));
+  recordEvents({ key: instruction.key, selector: instruction.selector, events: ['set files', 'input', 'change'] });
 
   return () => {
     // React can re-render the input away, or a page script can clear it.
@@ -57,6 +59,13 @@ export function startFileFill(instruction: FillInstruction, resume: ResumeFile |
     attached.set(el, { name: file.name, size: file.size, lastModified: file.lastModified });
     return { ...makeResult(instruction, 'filled', ''), attached: file.name };
   };
+}
+
+/** For the post-fill verification pass: does the input still hold the file we attached? */
+export function fileStillAttached(result: FillResult, doc: Document): boolean {
+  const el = querySafely(doc, result.selector);
+  const record = isFileInput(el) ? attached.get(el) : undefined;
+  return isFileInput(el) && !!record && holds(el, record);
 }
 
 /** Removes the file we attached, if it's still the one there. */

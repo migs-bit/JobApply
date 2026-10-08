@@ -1,5 +1,6 @@
 import type { FillInstruction, FillResult } from '../../shared/types';
 import { radioOptionLabel } from '../scanner/radio-group';
+import { recordEvents } from './event-sequence';
 import { makeResult, querySafely } from './fill-result';
 import { matchChoice, optionTexts } from './option-match';
 import { isRadioVisibleToUser } from './visibility';
@@ -61,12 +62,20 @@ export function startRadioFill(instruction: FillInstruction, doc: Document): Fil
   if (match.viaLearned) choice.viaLearned = true;
 
   target.click();
+  recordEvents({ key: instruction.key, selector: instruction.selector, events: ['click() (option)'] });
   return () => {
     // A page can cancel the click or restore its own state on re-render.
     if (!target.checked) return makeResult(instruction, 'failed', previousValue, 'page reverted', choice);
     clicked.set(first, { clicked: target, previous: current });
     return makeResult(instruction, 'filled', previousValue, undefined, choice);
   };
+}
+
+/** For the post-fill verification pass: is the radio we clicked still the chosen one? */
+export function radioStillChosen(result: FillResult, doc: Document): boolean {
+  const first = querySafely(doc, result.selector);
+  const record = isRadio(first) ? clicked.get(first) : undefined;
+  return !!record && record.clicked.isConnected && record.clicked.checked;
 }
 
 /**

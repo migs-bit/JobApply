@@ -63,6 +63,23 @@ Every change needs unit tests in `tests/resolver.test.ts` (or `fuzzy.test.ts` / 
 
 Learned text must never be logged, and the full store must never go to a content script. Only the options page reads it (`GET_LEARNED`).
 
+## Fill event sequence
+
+Text fields and dropdowns are filled with a fixed sequence of calls and events (`src/content/filler/event-sequence.ts`), not a bare value assignment:
+
+- **Text:** `focus()` → native value setter → `focus` → `focusin` → `keydown` → `input` → `keyup` → `change` → `blur()` → `blur` → `focusout`.
+- **Dropdowns:** `focus()` → `option.selected` + `selectedIndex` + native `value` setter → `focus` → `focusin` → `mousedown` → `mouseup` → `click` (on the option) → `click` → `input` → `change` → `blur()` → `blur` → `focusout`.
+
+Why it matters:
+- **Frameworks listen for different things.** React reads `input`, and `change` on selects. Form libraries often commit a value to their own state only on blur, validate on `keyup`, or mark fields "touched" on focus. Firing only `input` + `change` let a page *show* a value while its state stayed empty, and the form submitted the field blank.
+- **`focusin`/`focusout` must be dispatched by hand.** React's `onFocus`/`onBlur` use them. The popup holds keyboard focus during a fill, and in a page without focus `element.focus()`/`blur()` fire nothing.
+- **The native value setter** bypasses React's wrapped `value` setter; otherwise React ignores the `input` event.
+
+Rules when changing it:
+- **The order is tested:** `tests/robust-fill.test.ts` (the sequence) and the `robust-fill` browser suite (what the page receives, plus React state read on submit). Change both together.
+- **Check the result, not the events.** The verification pass (`verify.ts`) re-reads each field 200 ms after filling and reports "page reverted". Don't weaken it to make a site pass.
+- **Never log values.** The dev diagnostics log step names only, not the value or the key typed.
+
 ## Add a site adapter (planned)
 
 Site adapters (Tier 5) don't exist yet; see [ROADMAP.md](ROADMAP.md). The intended shape, so early work stays consistent:

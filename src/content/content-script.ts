@@ -16,8 +16,9 @@
 import { CONTENT_READY_FLAG } from '../shared/constants';
 import { sendToBackground } from '../shared/messaging';
 import type { FieldCandidate, FillPlan, FillResult, FillSummary, MsgResponse } from '../shared/types';
-import { labelOf, logChoiceDiagnostics, logFill, logResolutions, logScan } from './diagnostics';
+import { labelOf, logChoiceDiagnostics, logEventSequences, logFill, logResolutions, logScan } from './diagnostics';
 import { applyFill, undoFill } from './filler/dom-filler';
+import { takeEventRecords } from './filler/event-sequence';
 import { showOverlay, type OverlayRow } from './overlay/confirmation-ui';
 import { teach, teachableFields } from './teach';
 import { scanFields } from './scanner/dom-scanner';
@@ -49,6 +50,7 @@ async function fillPage(): Promise<FillSummary> {
   logResolutions(fields, res.data);
 
   const all = await applyFill(res.data.instructions, document, res.data.resume);
+  logEventSequences(fields, takeEventRecords());
   logFill(fields, all);
   logChoiceDiagnostics(fields, res.data, all);
   // A resume field with no resume uploaded wasn't really attempted: it's reported as a hint, not a skip.

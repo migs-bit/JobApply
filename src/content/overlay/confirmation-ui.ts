@@ -98,9 +98,9 @@ export function showOverlay({ rows, skipped, resumeMissing, onUndo, teachable, o
   shadow.append(panel);
   document.documentElement.append(host);
 
-  // Mark low-confidence fields on the page too; remember their old outline to restore.
+  // Mark low-confidence and failed fields on the page too; remember their old outline to restore.
   const outlined: Array<{ field: HTMLElement; outline: string; offset: string }> = [];
-  for (const row of filled.filter((r) => r.requiresReview)) {
+  for (const row of rows.filter((r) => r.status === 'failed' || r.requiresReview)) {
     const field = shownElementFor(row.selector);
     if (!field) continue;
     outlined.push({ field, outline: field.style.outline, offset: field.style.outlineOffset });
@@ -163,7 +163,8 @@ export function showOverlay({ rows, skipped, resumeMissing, onUndo, teachable, o
 }
 
 function renderRow(row: OverlayRow): HTMLLIElement {
-  const li = el('li', row.status === 'failed' ? 'failed' : row.requiresReview ? 'review' : '');
+  // Failed rows get the review styling too (yellow), with an error-colored badge: they need the user's attention.
+  const li = el('li', row.status === 'failed' ? 'failed review' : row.requiresReview ? 'review' : '');
   const button = el('button', 'row');
   button.type = 'button';
   button.title = 'Show this field';

@@ -15,8 +15,9 @@ A Chrome extension that fills in the repetitive parts of job applications (name,
 
 1. **You click Fill this page.** The extension finds the form fields on the current tab.
 2. **It matches each field to your profile.** For example, "Full name ✱" → your first and last name, and "LinkedIn URL" → your LinkedIn link.
-3. **It fills the matched fields** that are empty and visible, in a way that works with React and other modern web frameworks.
-4. **A small panel lists everything it filled,** with confidence scores. Low-confidence fills are highlighted in yellow for you to double-check, and **Undo** reverts them.
+3. **It fills the matched fields** that are empty and visible, the way a person would: it focuses each field, types or picks the value, and leaves it. That way React and form libraries record the value too, not just the page.
+4. **It double-checks.** A moment after filling, it re-reads every field it filled. If the page changed one back, that field is reported as "page reverted" instead of filled.
+5. **A small panel lists everything it filled,** with confidence scores. Low-confidence fills are highlighted in yellow for you to double-check, and **Undo** reverts them.
 
 Profile fields:
 - **Personal and address:** first and last name, email, phone, address (two lines, city, state, postal code, country).
@@ -65,6 +66,7 @@ npm run build
 2. Click the extension icon → **Fill this page**.
 3. Review the panel in the top-right corner:
    - **Yellow rows** (and yellow outlines on the page) are low-confidence; check them.
+   - **"Didn't stick" rows** (also yellow) are fields the page refused or changed back after filling, e.g. "page reverted". Fill those in yourself. The panel stays open when there are any.
    - **Undo** restores the fields it filled, but leaves anything you've edited since.
    - **Close** or **Esc** dismisses the panel. It closes on its own when everything is high-confidence.
 4. Fill in the rest yourself: custom questions, other file uploads, checkboxes. Then submit as usual.
@@ -158,7 +160,8 @@ Text-field values are never logged. Dev builds do log which dropdown option was 
 - `eeo-cases.html`: eligibility, salary, EEO and dropdown-matching cases;
 - `radio-cases.html`: radio groups;
 - `learn-cases.html`: "Teach this";
-- `resume-cases.html`: resume upload (upload a resume in Options first).
+- `resume-cases.html`: resume upload (upload a resume in Options first);
+- `robust-cases.html`: event sequences and values the page reverts.
 
 Every control on the case pages declares its expected result.
 
