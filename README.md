@@ -141,7 +141,7 @@ Found a vulnerability? See [SECURITY.md](SECURITY.md).
 ```bash
 npm run dev        # rebuild on change, with debug logging (reload the extension after each build)
 npm test           # unit tests (Node's built-in runner)
-npm run test:e2e   # browser end-to-end suites in headless Chrome (see tests/README.md)
+npm run test:e2e   # browser end-to-end suites in headless Chrome (see [CONTRIBUTING.md](CONTRIBUTING.md#tests))
 npm run build      # typecheck + tests + production build (debug logging compiled out)
 ```
 

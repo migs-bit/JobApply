@@ -40,7 +40,7 @@ All notable changes. The format follows [Keep a Changelog](https://keepachangelo
   - Ambiguous or missing matches are skipped, never guessed.
 - **Dropdown diagnostics in dev builds:** one row per dropdown with the resolved key, the chosen option, the options available, and the outcome.
 - **Browser end-to-end suites in the repo** (`npm run test:e2e`, plus `npm run test:e2e:live` for live job-board checks), and a Lever-style fixture page.
-- **Docs:** `ROADMAP.md`, `CONTRIBUTING.md`, this changelog, and `tests/README.md`.
+- **Docs:** `ROADMAP.md`, `CONTRIBUTING.md` (including how the tests work), `SECURITY.md`, and this changelog.
 - **Build:** `scripts/build.mjs --out=<dir>`, which builds somewhere other than `dist/`.
 
 ### Changed
